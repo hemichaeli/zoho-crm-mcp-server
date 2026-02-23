@@ -1,6 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import express from "express";
 
@@ -37,25 +36,27 @@ async function runHTTP(): Promise<void> {
     res.json({ status: "ok", server: "zoho-crm-mcp-server", version: "1.0.0" });
   });
 
-  // SSE endpoint - creates a new session with paired transport
+  // SSE endpoint
   app.get("/sse", async (req, res) => {
-    console.error("New SSE connection");
+    console.error("New SSE connection from " + req.ip);
     const transport = new SSEServerTransport("/messages", res);
     const sessionId = transport.sessionId;
     sessions.set(sessionId, transport);
+    console.error("SSE session created: " + sessionId);
 
     res.on("close", () => {
-      console.error(`SSE session closed: ${sessionId}`);
+      console.error("SSE session closed: " + sessionId);
       sessions.delete(sessionId);
     });
 
     const server = createServer();
     await server.connect(transport);
-    console.error(`SSE session started: ${sessionId}`);
+    console.error("SSE session connected: " + sessionId);
   });
 
-  // Messages endpoint - routes to the correct SSE transport by session ID
-  app.post("/messages", express.json(), async (req, res) => {
+  // Messages endpoint - DO NOT use express.json() here
+  // SSEServerTransport.handlePostMessage needs the raw request stream
+  app.post("/messages", async (req, res) => {
     const sessionId = req.query.sessionId as string;
     if (!sessionId) {
       res.status(400).json({ error: "Missing sessionId query parameter" });
@@ -68,27 +69,21 @@ async function runHTTP(): Promise<void> {
       return;
     }
 
-    await transport.handlePostMessage(req, res);
-  });
-
-  // Streamable HTTP transport (modern MCP protocol)
-  app.post("/mcp", express.json(), async (req, res) => {
-    const server = createServer();
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true,
-    });
-    res.on("close", () => transport.close());
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
+    try {
+      await transport.handlePostMessage(req, res);
+    } catch (error) {
+      console.error("Error handling message for session " + sessionId + ":", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Internal server error" });
+      }
+    }
   });
 
   const port = parseInt(process.env.PORT || "3000");
   app.listen(port, "0.0.0.0", () => {
-    console.error(`Zoho CRM MCP Server running on http://0.0.0.0:${port}`);
-    console.error(`  - Health: http://0.0.0.0:${port}/health`);
-    console.error(`  - MCP:    http://0.0.0.0:${port}/mcp`);
-    console.error(`  - SSE:    http://0.0.0.0:${port}/sse`);
+    console.error("Zoho CRM MCP Server running on http://0.0.0.0:" + port);
+    console.error("  - Health: http://0.0.0.0:" + port + "/health");
+    console.error("  - SSE:    http://0.0.0.0:" + port + "/sse");
   });
 }
 
