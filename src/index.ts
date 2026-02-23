@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import express from "express";
@@ -15,7 +16,6 @@ function createServer(): McpServer {
     version: "1.0.0",
   });
 
-  // Register all tool groups
   registerRecordTools(server);
   registerMetadataTools(server);
   registerRelatedTools(server);
@@ -28,47 +28,51 @@ function createServer(): McpServer {
 
 async function runHTTP(): Promise<void> {
   const app = express();
-  app.use(express.json());
+
+  // Store active SSE transports by session ID
+  const sessions = new Map<string, SSEServerTransport>();
 
   // Health check
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", server: "zoho-crm-mcp-server", version: "1.0.0" });
   });
 
-  // SSE endpoint for backwards compatibility
-  app.get("/sse", (_req, res) => {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-
-    const sessionId = crypto.randomUUID();
-    const messageEndpoint = `/messages?sessionId=${sessionId}`;
-
-    res.write(`event: endpoint\ndata: ${messageEndpoint}\n\n`);
-
-    const keepAlive = setInterval(() => {
-      res.write(":keepalive\n\n");
-    }, 15000);
+  // SSE endpoint - creates a new session with paired transport
+  app.get("/sse", async (req, res) => {
+    console.error("New SSE connection");
+    const transport = new SSEServerTransport("/messages", res);
+    const sessionId = transport.sessionId;
+    sessions.set(sessionId, transport);
 
     res.on("close", () => {
-      clearInterval(keepAlive);
+      console.error(`SSE session closed: ${sessionId}`);
+      sessions.delete(sessionId);
     });
+
+    const server = createServer();
+    await server.connect(transport);
+    console.error(`SSE session started: ${sessionId}`);
+  });
+
+  // Messages endpoint - routes to the correct SSE transport by session ID
+  app.post("/messages", express.json(), async (req, res) => {
+    const sessionId = req.query.sessionId as string;
+    if (!sessionId) {
+      res.status(400).json({ error: "Missing sessionId query parameter" });
+      return;
+    }
+
+    const transport = sessions.get(sessionId);
+    if (!transport) {
+      res.status(404).json({ error: "Session not found. It may have expired." });
+      return;
+    }
+
+    await transport.handlePostMessage(req, res);
   });
 
   // Streamable HTTP transport (modern MCP protocol)
-  app.post("/mcp", async (req, res) => {
-    const server = createServer();
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true,
-    });
-    res.on("close", () => transport.close());
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
-  });
-
-  // Legacy SSE message handler
-  app.post("/messages", async (req, res) => {
+  app.post("/mcp", express.json(), async (req, res) => {
     const server = createServer();
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -95,7 +99,6 @@ async function runStdio(): Promise<void> {
   console.error("Zoho CRM MCP Server running on stdio");
 }
 
-// Choose transport based on environment
 const transport = process.env.TRANSPORT || "http";
 if (transport === "http") {
   runHTTP().catch((error) => {
