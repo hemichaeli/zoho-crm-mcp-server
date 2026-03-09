@@ -8,6 +8,7 @@ import { registerMetadataTools } from "./tools/metadata.js";
 import { registerRelatedTools } from "./tools/related.js";
 import { registerUserTools } from "./tools/users.js";
 import { registerOperationTools } from "./tools/operations.js";
+import { registerCalendarTools } from "./tools/calendar.js";
 
 function createServer(): McpServer {
   const server = new McpServer({
@@ -20,6 +21,7 @@ function createServer(): McpServer {
   registerRelatedTools(server);
   registerUserTools(server);
   registerOperationTools(server);
+  registerCalendarTools(server);
 
   console.error("Registered all Zoho CRM MCP tools");
   return server;
