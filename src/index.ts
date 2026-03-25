@@ -14,7 +14,7 @@ const WEBHOOK_CHANNEL_ID = "77001";
 const WEBHOOK_URL = "https://zoho-crm-mcp-server-production-f0c4.up.railway.app/webhook/zoho-tags";
 const WEBHOOK_TOKEN = "nasig-tag-automation";
 const WEBHOOK_EVENTS = ["LinkingModule2.create", "LinkingModule2.delete"];
-const RENEWAL_INTERVAL_MS = 23 * 60 * 60 * 1000; // 23 hours
+const RENEWAL_INTERVAL_MS = 23 * 60 * 60 * 1000;
 
 function createServer(): McpServer {
   const server = new McpServer({
@@ -35,7 +35,6 @@ function createServer(): McpServer {
   return server;
 }
 
-// Get a fresh ZOHO access token directly (bypasses ZohoClient's private method)
 async function getZohoToken(): Promise<string> {
   const accountsDomain = process.env.ZOHO_ACCOUNTS_DOMAIN || "https://accounts.zoho.com";
   const params = new URLSearchParams({
@@ -52,26 +51,18 @@ async function getZohoToken(): Promise<string> {
   return res.data.access_token as string;
 }
 
-// Renew ZOHO notification channel: delete existing + re-create with fresh 24h expiry
 async function renewNotification(): Promise<void> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
   try {
     const token = await getZohoToken();
-
-    // Step 1: delete existing channel (use axios directly - body must go as `data`)
     try {
       await axios.delete(`${apiDomain}/crm/v2/actions/watch`, {
         headers: { Authorization: `Zoho-oauthtoken ${token}` },
         data: { watch: [{ channel_id: WEBHOOK_CHANNEL_ID }] },
       });
-      console.error(`[cron] Deleted old notification channel ${WEBHOOK_CHANNEL_ID}`);
-    } catch {
-      // Ignore - channel may not exist yet
-    }
+    } catch { /* ignore - channel may not exist */ }
 
-    // Step 2: re-create with fresh 24h expiry
     const result = await axios.post(
       `${apiDomain}/crm/v2/actions/watch`,
       {
@@ -85,26 +76,61 @@ async function renewNotification(): Promise<void> {
       },
       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
     );
-
     const code = result.data?.watch?.[0]?.code;
     if (code === "SUCCESS") {
       console.error(`[cron] Notification renewed until ${expiry}`);
     } else {
-      console.error(`[cron] Renewal unexpected response:`, JSON.stringify(result.data));
+      console.error(`[cron] Renewal unexpected:`, JSON.stringify(result.data));
     }
   } catch (err) {
-    console.error(`[cron] Notification renewal failed:`, err instanceof Error ? err.message : String(err));
+    console.error(`[cron] Renewal failed:`, err instanceof Error ? err.message : String(err));
   }
 }
 
-// Webhook handler: add/remove "נציג" tag on Contacts based on LinkingModule2 events
+async function addTag(contactId: string): Promise<void> {
+  const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
+  const token = await getZohoToken();
+  await axios.post(
+    `${apiDomain}/crm/v7/Contacts/actions/add_tags`,
+    { ids: [contactId], tags: [{ name: "נציג" }] },
+    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+  );
+}
+
+async function removeTag(contactId: string): Promise<void> {
+  const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
+  const token = await getZohoToken();
+  // ZOHO remove_tags uses POST with query params - DELETE with body is rejected
+  const tagEncoded = encodeURIComponent("נציג");
+  await axios.post(
+    `${apiDomain}/crm/v7/Contacts/actions/remove_tags?ids=${contactId}&tag_names=${tagEncoded}`,
+    {},
+    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+  );
+}
+
+async function fetchContactIdFromLinkingRecord(recordId: string, token: string): Promise<string | null> {
+  const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
+  try {
+    const res = await axios.get(
+      `${apiDomain}/crm/v7/LinkingModule2/${recordId}`,
+      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+    );
+    const record = res.data?.data?.[0];
+    const f1 = record?.field1;
+    return f1?.id ? String(f1.id) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function handleNasigTag(
-  client: ZohoClient,
   operation: string,
   payload: Record<string, unknown>
 ): Promise<{ success: boolean; message: string }> {
   let contactId: string | null = null;
 
+  // ZOHO sends field1 as {id, name} object in the notification payload
   const field1 = payload["field1"] as Record<string, unknown> | string | undefined;
   if (field1 && typeof field1 === "object" && field1["id"]) {
     contactId = String(field1["id"]);
@@ -112,23 +138,13 @@ async function handleNasigTag(
     contactId = field1;
   }
 
-  // If field1 not in payload, fetch the record
+  // If field1 not in payload, fetch the record from ZOHO
   if (!contactId && (operation === "insert" || operation === "create")) {
     const ids = payload["ids"] as string | undefined;
     const recordId = ids ? ids.split(",")[0].trim() : null;
     if (recordId && recordId !== "test-ping" && recordId !== "test-check") {
-      try {
-        const result = await client.get<{ data: Record<string, unknown>[] }>(
-          `/LinkingModule2/${recordId}`
-        );
-        const record = result?.data?.[0];
-        const f1 = record?.["field1"] as Record<string, unknown> | undefined;
-        if (f1?.["id"]) {
-          contactId = String(f1["id"]);
-        }
-      } catch (err) {
-        console.error("[webhook] Failed to fetch LinkingModule2 record:", err);
-      }
+      const token = await getZohoToken();
+      contactId = await fetchContactIdFromLinkingRecord(recordId, token);
     }
   }
 
@@ -138,17 +154,11 @@ async function handleNasigTag(
 
   try {
     if (operation === "insert" || operation === "create") {
-      await client.post(`/Contacts/actions/add_tags`, {
-        ids: [contactId],
-        tags: [{ name: "נציג" }],
-      });
+      await addTag(contactId);
       console.error(`[webhook] Added tag נציג to Contact ${contactId}`);
       return { success: true, message: `Added tag נציג to Contact ${contactId}` };
     } else if (operation === "delete") {
-      await client.delete(`/Contacts/actions/remove_tags`, {
-        ids: contactId,
-        tag_names: "נציג",
-      });
+      await removeTag(contactId);
       console.error(`[webhook] Removed tag נציג from Contact ${contactId}`);
       return { success: true, message: `Removed tag נציג from Contact ${contactId}` };
     } else {
@@ -165,9 +175,6 @@ async function runHTTP(): Promise<void> {
   const app = express();
   app.use(express.json());
 
-  const zohoClient = new ZohoClient();
-
-  // Renew notification channel now, then every 23 hours
   await renewNotification();
   setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
@@ -175,7 +182,6 @@ async function runHTTP(): Promise<void> {
     res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.0.0" });
   });
 
-  // Webhook: receives ZOHO Notifications for LinkingModule2 create/delete
   app.post("/webhook/zoho-tags", async (req, res) => {
     try {
       const body = req.body as Record<string, unknown>;
@@ -191,7 +197,7 @@ async function runHTTP(): Promise<void> {
       }
 
       const enrichedPayload: Record<string, unknown> = { ...body, ids, operation };
-      const result = await handleNasigTag(zohoClient, operation, enrichedPayload);
+      const result = await handleNasigTag(operation, enrichedPayload);
       return res.json({ ok: result.success, message: result.message });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
