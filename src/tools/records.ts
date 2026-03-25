@@ -1,29 +1,342 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ZohoClient } from "../client.js";
 import { z } from "zod";
-import { zohoRequest, buildToolResponse, buildErrorResponse } from "../services/zoho-client.js";
 
-export function registerRecordTools(server: McpServer): void {
-  server.registerTool("zoho_get_records", { title: "Get Records", description: "Fetch records from any Zoho CRM module (Leads, Contacts, Accounts, Deals, etc.). Supports pagination, field selection, sorting, and filtering by custom views.\n\nArgs:\n  - module: Module API name (e.g., Leads, Contacts, Accounts, Deals, Tasks, Events, Calls, Products, Quotes, Sales_Orders, Purchase_Orders, Invoices, Campaigns, Vendors, Cases, Solutions, Price_Books)\n  - fields: Comma-separated field API names to retrieve (max 50)\n  - per_page: Records per page (1-200, default 200)\n  - page: Page number (default 1)\n  - page_token: Token for cursor-based pagination\n  - sort_by/sort_order: Sorting\n  - cvid: Custom view ID\n  - ids: Comma-separated record IDs\n  - include_child: Include child records", inputSchema: { module: z.string().describe("Module API name"), fields: z.string().optional().describe("Comma-separated field API names (max 50)"), per_page: z.number().int().min(1).max(200).default(200).optional(), page: z.number().int().min(1).optional(), page_token: z.string().optional(), sort_by: z.string().optional(), sort_order: z.enum(["asc", "desc"]).optional(), cvid: z.string().optional(), ids: z.string().optional(), include_child: z.boolean().optional() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async (params) => { try { const query: Record<string, string> = {}; if (params.fields) query.fields = params.fields; if (params.per_page) query.per_page = String(params.per_page); if (params.page) query.page = String(params.page); if (params.page_token) query.page_token = params.page_token; if (params.sort_by) query.sort_by = params.sort_by; if (params.sort_order) query.sort_order = params.sort_order; if (params.cvid) query.cvid = params.cvid; if (params.ids) query.ids = params.ids; if (params.include_child) query.include_child = String(params.include_child); return buildToolResponse(await zohoRequest(params.module, "GET", undefined, query)); } catch (error) { return buildErrorResponse(error); } });
+export function registerRecordTools(server: McpServer, client: ZohoClient): void {
+  // Get records
+  server.tool(
+    "zoho_get_records",
+    "Fetch records from any Zoho CRM module with pagination, sorting and filtering",
+    {
+      module: z.string().describe("Module API name (e.g., Leads, Contacts, Accounts, Deals)"),
+      fields: z.string().optional().describe("Comma-separated field API names (max 50)"),
+      per_page: z.number().min(1).max(200).default(200).optional().describe("Records per page"),
+      page: z.number().min(1).default(1).optional().describe("Page number"),
+      page_token: z.string().optional().describe("Token for cursor-based pagination"),
+      sort_by: z.string().optional().describe("Field to sort by"),
+      sort_order: z.enum(["asc", "desc"]).optional().describe("Sort direction"),
+      cvid: z.string().optional().describe("Custom view ID"),
+      ids: z.string().optional().describe("Comma-separated record IDs"),
+      include_child: z.boolean().optional().describe("Include child records"),
+    },
+    async (args) => {
+      const params: Record<string, unknown> = {};
+      if (args.fields) params.fields = args.fields;
+      if (args.per_page) params.per_page = args.per_page;
+      if (args.page) params.page = args.page;
+      if (args.page_token) params.page_token = args.page_token;
+      if (args.sort_by) params.sort_by = args.sort_by;
+      if (args.sort_order) params.sort_order = args.sort_order;
+      if (args.cvid) params.cvid = args.cvid;
+      if (args.ids) params.ids = args.ids;
+      if (args.include_child !== undefined) params.include_child = args.include_child;
+      const result = await client.get(`/${args.module}`, params);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_get_record", { title: "Get Record by ID", description: "Fetch a specific record by its ID from any Zoho CRM module. Returns all fields by default, or only specified fields.", inputSchema: { module: z.string().describe("Module API name"), record_id: z.string().describe("Record ID"), fields: z.string().optional().describe("Comma-separated field API names") }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async (params) => { try { const query: Record<string, string> = {}; if (params.fields) query.fields = params.fields; return buildToolResponse(await zohoRequest(`${params.module}/${params.record_id}`, "GET", undefined, query)); } catch (error) { return buildErrorResponse(error); } });
+  // Get single record
+  server.tool(
+    "zoho_get_record",
+    "Fetch a specific record by its ID from any Zoho CRM module",
+    {
+      module: z.string().describe("Module API name"),
+      record_id: z.string().describe("Record ID"),
+      fields: z.string().optional().describe("Comma-separated field API names"),
+    },
+    async (args) => {
+      const params: Record<string, unknown> = {};
+      if (args.fields) params.fields = args.fields;
+      const result = await client.get(`/${args.module}/${args.record_id}`, params);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_create_records", { title: "Create Records", description: "Create one or more records in any Zoho CRM module. Up to 100 records per request. Each record is a JSON object with field API names as keys.\n\nExample: [{\"Last_Name\": \"Doe\", \"Email\": \"john@example.com\", \"Company\": \"Acme\"}]", inputSchema: { module: z.string().describe("Module API name"), records: z.array(z.record(z.string(), z.unknown())).min(1).max(100).describe("Array of record objects"), trigger: z.string().optional().describe("Workflow triggers: workflow, approval, blueprint") }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } }, async (params) => { try { const body: Record<string, unknown> = { data: params.records }; if (params.trigger) body.trigger = params.trigger.split(","); return buildToolResponse(await zohoRequest(params.module, "POST", body)); } catch (error) { return buildErrorResponse(error); } });
+  // Create records
+  server.tool(
+    "zoho_create_records",
+    "Create one or more records in any Zoho CRM module (up to 100 per request)",
+    {
+      module: z.string().describe("Module API name"),
+      records: z.array(z.record(z.unknown())).min(1).max(100).describe("Array of record objects"),
+      trigger: z.string().optional().describe("Workflow triggers: workflow, approval, blueprint"),
+    },
+    async (args) => {
+      const body: Record<string, unknown> = { data: args.records };
+      if (args.trigger) body.trigger = [args.trigger];
+      const result = await client.post(`/${args.module}`, body);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_update_records", { title: "Update Records", description: "Update one or more existing records. Each record must include an 'id' field. Up to 100 records per request.\n\nExample: [{\"id\": \"12345\", \"Email\": \"newemail@example.com\"}]", inputSchema: { module: z.string().describe("Module API name"), records: z.array(z.record(z.string(), z.unknown())).min(1).max(100).describe("Array of record objects with 'id' field"), trigger: z.string().optional().describe("Workflow triggers") }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async (params) => { try { const body: Record<string, unknown> = { data: params.records }; if (params.trigger) body.trigger = params.trigger.split(","); return buildToolResponse(await zohoRequest(params.module, "PUT", body)); } catch (error) { return buildErrorResponse(error); } });
+  // Update records
+  server.tool(
+    "zoho_update_records",
+    "Update one or more existing records. Each record must include an 'id' field.",
+    {
+      module: z.string().describe("Module API name"),
+      records: z.array(z.record(z.unknown())).min(1).max(100).describe("Array of record objects with 'id' field"),
+      trigger: z.string().optional().describe("Workflow triggers"),
+    },
+    async (args) => {
+      const body: Record<string, unknown> = { data: args.records };
+      if (args.trigger) body.trigger = [args.trigger];
+      const result = await client.put(`/${args.module}`, body);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_upsert_records", { title: "Upsert Records", description: "Insert or update records based on duplicate check fields. If a record exists matching duplicate_check_fields, it updates; otherwise creates.", inputSchema: { module: z.string().describe("Module API name"), records: z.array(z.record(z.string(), z.unknown())).min(1).max(100), duplicate_check_fields: z.array(z.string()).optional().describe("Fields for duplicate checking"), trigger: z.string().optional() }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async (params) => { try { const body: Record<string, unknown> = { data: params.records }; if (params.duplicate_check_fields) body.duplicate_check_fields = params.duplicate_check_fields; if (params.trigger) body.trigger = params.trigger.split(","); return buildToolResponse(await zohoRequest(`${params.module}/upsert`, "POST", body)); } catch (error) { return buildErrorResponse(error); } });
+  // Delete records
+  server.tool(
+    "zoho_delete_records",
+    "Delete one or more records from any Zoho CRM module",
+    {
+      module: z.string().describe("Module API name"),
+      ids: z.string().describe("Comma-separated record IDs to delete (max 100)"),
+      wf_trigger: z.boolean().optional().describe("Trigger workflows on delete"),
+    },
+    async (args) => {
+      const params: Record<string, unknown> = { ids: args.ids };
+      if (args.wf_trigger !== undefined) params.wf_trigger = args.wf_trigger;
+      const result = await client.delete(`/${args.module}`, params);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_delete_records", { title: "Delete Records", description: "Delete one or more records from any Zoho CRM module. Provide comma-separated record IDs (max 100).", inputSchema: { module: z.string().describe("Module API name"), ids: z.string().describe("Comma-separated record IDs to delete (max 100)"), wf_trigger: z.boolean().optional().describe("Trigger workflows on delete") }, annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false } }, async (params) => { try { const query: Record<string, string> = { ids: params.ids }; if (params.wf_trigger !== undefined) query.wf_trigger = String(params.wf_trigger); return buildToolResponse(await zohoRequest(params.module, "DELETE", undefined, query)); } catch (error) { return buildErrorResponse(error); } });
+  // Search records
+  server.tool(
+    "zoho_search_records",
+    "Search for records using criteria, email, phone, or full-text word search",
+    {
+      module: z.string().describe("Module API name"),
+      criteria: z.string().optional().describe("Search criteria expression e.g. ((Last_Name:equals:Doe)and(Company:equals:Acme))"),
+      email: z.string().optional().describe("Search by email"),
+      phone: z.string().optional().describe("Search by phone"),
+      word: z.string().optional().describe("Full-text search"),
+      fields: z.string().optional().describe("Comma-separated field names"),
+      page: z.number().min(1).optional(),
+      per_page: z.number().min(1).max(200).optional(),
+    },
+    async (args) => {
+      const params: Record<string, unknown> = {};
+      if (args.criteria) params.criteria = args.criteria;
+      if (args.email) params.email = args.email;
+      if (args.phone) params.phone = args.phone;
+      if (args.word) params.word = args.word;
+      if (args.fields) params.fields = args.fields;
+      if (args.page) params.page = args.page;
+      if (args.per_page) params.per_page = args.per_page;
+      const result = await client.get(`/${args.module}/search`, params);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_search_records", { title: "Search Records", description: "Search for records using criteria, email, phone, or full-text word search.\n\nCriteria example: ((Last_Name:equals:Doe)and(Company:equals:Acme))\nOperators: equals, not_equal, starts_with, ends_with, contains, not_contains, less_than, less_equal, greater_than, greater_equal, between, not_between, in, not_in", inputSchema: { module: z.string().describe("Module API name"), criteria: z.string().optional().describe("Search criteria expression"), email: z.string().optional(), phone: z.string().optional(), word: z.string().optional().describe("Full-text search"), fields: z.string().optional(), per_page: z.number().int().min(1).max(200).optional(), page: z.number().int().min(1).optional() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async (params) => { try { const query: Record<string, string> = {}; if (params.criteria) query.criteria = params.criteria; if (params.email) query.email = params.email; if (params.phone) query.phone = params.phone; if (params.word) query.word = params.word; if (params.fields) query.fields = params.fields; if (params.per_page) query.per_page = String(params.per_page); if (params.page) query.page = String(params.page); return buildToolResponse(await zohoRequest(`${params.module}/search`, "GET", undefined, query)); } catch (error) { return buildErrorResponse(error); } });
+  // Upsert records
+  server.tool(
+    "zoho_upsert_records",
+    "Insert or update records based on duplicate check fields",
+    {
+      module: z.string().describe("Module API name"),
+      records: z.array(z.record(z.unknown())).min(1).max(100),
+      duplicate_check_fields: z.array(z.string()).optional().describe("Fields for duplicate checking"),
+      trigger: z.string().optional(),
+    },
+    async (args) => {
+      const body: Record<string, unknown> = { data: args.records };
+      if (args.duplicate_check_fields) body.duplicate_check_fields = args.duplicate_check_fields;
+      if (args.trigger) body.trigger = [args.trigger];
+      const result = await client.post(`/${args.module}/upsert`, body);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_coql_query", { title: "COQL Query", description: "Execute CRM Object Query Language (COQL) query. SQL-like SELECT syntax with WHERE, ORDER BY, LIMIT, OFFSET.\n\nExample: \"select Last_Name, Email from Leads where Company = 'Acme' order by Created_Time desc limit 10\"\n\nMax 200 records. Supports count, sum, avg, min, max.", inputSchema: { select_query: z.string().describe("COQL SELECT query string") }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async (params) => { try { return buildToolResponse(await zohoRequest("coql", "POST", { select_query: params.select_query })); } catch (error) { return buildErrorResponse(error); } });
+  // COQL query
+  server.tool(
+    "zoho_coql_query",
+    "Execute CRM Object Query Language (COQL) query. SQL-like SELECT syntax.",
+    {
+      select_query: z.string().describe("COQL SELECT query e.g. select Last_Name, Email from Leads where Company = 'Acme' limit 10"),
+    },
+    async (args) => {
+      const result = await client.post("/coql", { select_query: args.select_query });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_convert_lead", { title: "Convert Lead", description: "Convert a lead to contact, account, and optionally a deal.", inputSchema: { lead_id: z.string().describe("Lead record ID"), overwrite: z.boolean().optional(), notify_lead_owner: z.boolean().optional(), notify_new_entity_owner: z.boolean().optional(), account_id: z.string().optional().describe("Existing account ID to link"), contact_id: z.string().optional().describe("Existing contact ID to link"), deal_name: z.string().optional().describe("Deal name if creating a deal"), deal_data: z.record(z.string(), z.unknown()).optional().describe("Additional deal fields") }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } }, async (params) => { try { const dataArr: Record<string, unknown>[] = [{}]; if (params.overwrite !== undefined) dataArr[0].overwrite = params.overwrite; if (params.notify_lead_owner !== undefined) dataArr[0].notify_lead_owner = params.notify_lead_owner; if (params.notify_new_entity_owner !== undefined) dataArr[0].notify_new_entity_owner = params.notify_new_entity_owner; if (params.account_id) dataArr[0].Accounts = params.account_id; if (params.contact_id) dataArr[0].Contacts = params.contact_id; if (params.deal_name) dataArr[0].Deals = { Deal_Name: params.deal_name, ...params.deal_data }; return buildToolResponse(await zohoRequest(`Leads/${params.lead_id}/actions/convert`, "POST", { data: dataArr })); } catch (error) { return buildErrorResponse(error); } });
+  // Mass update
+  server.tool(
+    "zoho_mass_update",
+    "Update multiple records with the same field values",
+    {
+      module: z.string().describe("Module API name"),
+      ids: z.array(z.string()).min(1).max(100).describe("Array of record IDs"),
+      fields: z.record(z.unknown()).describe("Field-value pairs to apply to all records"),
+    },
+    async (args) => {
+      const records = args.ids.map((id) => ({ id, ...args.fields }));
+      const result = await client.put(`/${args.module}`, { data: records });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_mass_update", { title: "Mass Update Records", description: "Update multiple records with the same field values.", inputSchema: { module: z.string(), ids: z.array(z.string()).min(1).max(100).describe("Array of record IDs"), fields: z.record(z.string(), z.unknown()).describe("Field-value pairs to apply to all records") }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async (params) => { try { return buildToolResponse(await zohoRequest(`${params.module}/actions/mass_update`, "POST", { data: [{ ...params.fields }], ids: params.ids })); } catch (error) { return buildErrorResponse(error); } });
+  // Get record count
+  server.tool(
+    "zoho_get_record_count",
+    "Get total count of records in a module",
+    {
+      module: z.string().describe("Module API name"),
+      criteria: z.string().optional().describe("Filter criteria"),
+      cvid: z.string().optional().describe("Custom view ID"),
+    },
+    async (args) => {
+      const params: Record<string, unknown> = {};
+      if (args.criteria) params.criteria = args.criteria;
+      if (args.cvid) params.cvid = args.cvid;
+      const result = await client.get(`/${args.module}/actions/count`, params);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_get_deleted_records", { title: "Get Deleted Records", description: "Retrieve deleted records from a module. Filter by deletion type (all, recycle, permanent).", inputSchema: { module: z.string(), type: z.enum(["all", "recycle", "permanent"]).optional(), per_page: z.number().int().min(1).max(200).optional(), page: z.number().int().min(1).optional() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async (params) => { try { const query: Record<string, string> = {}; if (params.type) query.type = params.type; if (params.per_page) query.per_page = String(params.per_page); if (params.page) query.page = String(params.page); return buildToolResponse(await zohoRequest(`${params.module}/deleted`, "GET", undefined, query)); } catch (error) { return buildErrorResponse(error); } });
+  // Get deleted records
+  server.tool(
+    "zoho_get_deleted_records",
+    "Retrieve deleted records from a module",
+    {
+      module: z.string().describe("Module API name"),
+      type: z.enum(["all", "recycle", "permanent"]).optional().default("all"),
+      page: z.number().min(1).optional(),
+      per_page: z.number().min(1).max(200).optional(),
+    },
+    async (args) => {
+      const params: Record<string, unknown> = {};
+      if (args.type) params.type = args.type;
+      if (args.page) params.page = args.page;
+      if (args.per_page) params.per_page = args.per_page;
+      const result = await client.get(`/${args.module}/deleted`, params);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 
-  server.registerTool("zoho_get_record_count", { title: "Get Record Count", description: "Get total count of records in a module. Optionally filter by criteria or custom view.", inputSchema: { module: z.string(), criteria: z.string().optional(), cvid: z.string().optional() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async (params) => { try { const query: Record<string, string> = {}; if (params.criteria) query.criteria = params.criteria; if (params.cvid) query.cvid = params.cvid; return buildToolResponse(await zohoRequest(`${params.module}/actions/count`, "GET", undefined, query)); } catch (error) { return buildErrorResponse(error); } });
+  // Bulk read - create job
+  server.tool(
+    "zoho_bulk_read_create_job",
+    "Create a bulk read job to export large amounts of data from a module",
+    {
+      module: z.string().describe("Module API name"),
+      fields: z.array(z.string()).optional().describe("Field API names to export"),
+      criteria: z.record(z.unknown()).optional().describe("Filter criteria object"),
+      page: z.number().min(1).optional().describe("Page number for pagination"),
+    },
+    async (args) => {
+      const body: Record<string, unknown> = {
+        query: { module: { api_name: args.module } },
+      };
+      if (args.fields) (body.query as Record<string, unknown>).fields = args.fields.map((f) => ({ api_name: f }));
+      if (args.criteria) (body.query as Record<string, unknown>).criteria = args.criteria;
+      if (args.page) (body.query as Record<string, unknown>).page = args.page;
+      const result = await client.post("/bulk/read", body);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  // Bulk read - get job status
+  server.tool(
+    "zoho_bulk_read_get_job",
+    "Check the status of a bulk read job",
+    {
+      job_id: z.string().describe("Bulk read job ID"),
+    },
+    async (args) => {
+      const result = await client.get(`/bulk/read/${args.job_id}`);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  // Bulk write - create job
+  server.tool(
+    "zoho_bulk_write_create_job",
+    "Create a bulk write job to import large amounts of data into a module",
+    {
+      module: z.string().describe("Module API name"),
+      file_id: z.string().describe("Uploaded file ID"),
+      operation: z.enum(["insert", "update", "upsert"]).describe("Operation type"),
+      find_by: z.string().optional().describe("Field API name for duplicate check (for upsert)"),
+    },
+    async (args) => {
+      const body: Record<string, unknown> = {
+        operation: args.operation,
+        resource: [{ type: "data", module: { api_name: args.module }, file_id: args.file_id }],
+      };
+      if (args.find_by) (body.resource as Record<string, unknown>[])[0].find_by = args.find_by;
+      const result = await client.post("/bulk/write", body);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  // Bulk write - get job status
+  server.tool(
+    "zoho_bulk_write_get_job",
+    "Check the status of a bulk write job",
+    {
+      job_id: z.string().describe("Bulk write job ID"),
+    },
+    async (args) => {
+      const result = await client.get(`/bulk/write/${args.job_id}`);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  // Get related records
+  server.tool(
+    "zoho_get_related_records",
+    "Fetch records related to a specific record through a related list",
+    {
+      module: z.string().describe("Parent module API name"),
+      record_id: z.string().describe("Parent record ID"),
+      related_list: z.string().describe("Related list API name"),
+      fields: z.string().optional().describe("Comma-separated field API names"),
+      page: z.number().min(1).optional(),
+      per_page: z.number().min(1).max(200).optional(),
+    },
+    async (args) => {
+      const params: Record<string, unknown> = {};
+      if (args.fields) params.fields = args.fields;
+      if (args.page) params.page = args.page;
+      if (args.per_page) params.per_page = args.per_page;
+      const result = await client.get(`/${args.module}/${args.record_id}/${args.related_list}`, params);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  // Update related records
+  server.tool(
+    "zoho_update_related_records",
+    "Update or associate related records to a parent record",
+    {
+      module: z.string().describe("Parent module API name"),
+      record_id: z.string().describe("Parent record ID"),
+      related_list: z.string().describe("Related list API name"),
+      records: z.array(z.record(z.unknown())).min(1).max(100).describe("Related records to associate"),
+    },
+    async (args) => {
+      const result = await client.put(`/${args.module}/${args.record_id}/${args.related_list}`, { data: args.records });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  // Delink related records
+  server.tool(
+    "zoho_delink_related_records",
+    "Remove the association between a parent record and related records",
+    {
+      module: z.string().describe("Parent module API name"),
+      record_id: z.string().describe("Parent record ID"),
+      related_list: z.string().describe("Related list API name"),
+      ids: z.string().describe("Comma-separated related record IDs to delink"),
+    },
+    async (args) => {
+      const result = await client.delete(`/${args.module}/${args.record_id}/${args.related_list}`, { ids: args.ids });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 }
