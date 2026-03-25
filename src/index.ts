@@ -1,1 +1,177 @@
-aW1wb3J0IHsgTWNwU2VydmVyIH0gZnJvbSAiQG1vZGVsY29udGV4dHByb3RvY29sL3Nkay9zZXJ2ZXIvbWNwLmpzIjsKaW1wb3J0IHsgU3RyZWFtYWJsZUhUVFBTZXJ2ZXJUcmFuc3BvcnQgfSBmcm9tICJAbW9kZWxjb250ZXh0cHJvdG9jb2wvc2RrL3NlcnZlci9zdHJlYW1hYmxlSHR0cC5qcyI7CmltcG9ydCB7IFN0ZGlvU2VydmVyVHJhbnNwb3J0IH0gZnJvbSAiQG1vZGVsY29udGV4dHByb3RvY29sL3Nkay9zZXJ2ZXIvc3RkaW8uanMiOwppbXBvcnQgZXhwcmVzcyBmcm9tICJleHByZXNzIjsKaW1wb3J0IHsgWm9ob0NsaWVudCB9IGZyb20gIi4vY2xpZW50LmpzIjsKaW1wb3J0IHsgcmVnaXN0ZXJSZWNvcmRUb29scyB9IGZyb20gIi4vdG9vbHMvcmVjb3Jkcy5qcyI7CmltcG9ydCB7IHJlZ2lzdGVyTWV0YWRhdGFUb29scyB9IGZyb20gIi4vdG9vbHMvbWV0YWRhdGEuanMiOwppbXBvcnQgeyByZWdpc3RlclRhZ1Rvb2xzLCByZWdpc3Rlck5vdGVUb29scywgcmVnaXN0ZXJVc2VyVG9vbHMgfSBmcm9tICIuL3Rvb2xzL3RhZ3Mtbm90ZXMtdXNlcnMuanMiOwppbXBvcnQgeyByZWdpc3RlckF1dG9tYXRpb25Ub29scyB9IGZyb20gIi4vdG9vbHMvYXV0b21hdGlvbi5qcyI7CmltcG9ydCB7IHJlZ2lzdGVyQWN0aXZpdHlUb29scyB9IGZyb20gIi4vdG9vbHMvYWN0aXZpdGllcy5qcyI7CgpmdW5jdGlvbiBjcmVhdGVTZXJ2ZXIoKTogTWNwU2VydmVyIHsKICBjb25zdCBzZXJ2ZXIgPSBuZXcgTWNwU2VydmVyKHsKICAgIG5hbWU6ICJ6b2hvLWNybS1tY3Atc2VydmVyIiwKICAgIHZlcnNpb246ICIxLjAuMCIsCiAgfSk7CgogIGNvbnN0IGNsaWVudCA9IG5ldyBab2hvQ2xpZW50KCk7CgogIHJlZ2lzdGVyUmVjb3JkVG9vbHMoc2VydmVyLCBjbGllbnQpOwogIHJlZ2lzdGVyTWV0YWRhdGFUb29scyhzZXJ2ZXIsIGNsaWVudCk7CiAgcmVnaXN0ZXJUYWdUb29scyhzZXJ2ZXIsIGNsaWVudCk7CiAgcmVnaXN0ZXJOb3RlVG9vbHMoc2VydmVyLCBjbGllbnQpOwogIHJlZ2lzdGVyVXNlclRvb2xzKHNlcnZlciwgY2xpZW50KTsKICByZWdpc3RlckF1dG9tYXRpb25Ub29scyhzZXJ2ZXIsIGNsaWVudCk7CiAgcmVnaXN0ZXJBY3Rpdml0eVRvb2xzKHNlcnZlciwgY2xpZW50KTsKCiAgcmV0dXJuIHNlcnZlcjsKfQoKYXN5bmMgZnVuY3Rpb24gcnVuSFRUUCgpOiBQcm9taXNlPHZvaWQ+IHsKICBjb25zdCBhcHAgPSBleHByZXNzKCk7CiAgYXBwLnVzZShleHByZXNzLmpzb24oKSk7CgogIGFwcC5nZXQoIi9oZWFsdGgiLCAoX3JlcSwgcmVzKSA9PiB7CiAgICByZXMuanNvbih7IHN0YXR1czogIm9rIiwgc2VydmljZTogInpvaG8tY3JtLW1jcC1zZXJ2ZXIiLCB2ZXJzaW9uOiAiMS4wLjAiIH0pOwogIH0pOwoKICBhcHAucG9zdCgiL21jcCIsIGFzeW5jIChyZXEsIHJlcykgPT4gewogICAgY29uc3Qgc2VydmVyID0gY3JlYXRlU2VydmVyKCk7CiAgICBjb25zdCB0cmFuc3BvcnQgPSBuZXcgU3RyZWFtYWJsZUhUVFBTZXJ2ZXJUcmFuc3BvcnQoewogICAgICBzZXNzaW9uSWRHZW5lcmF0b3I6IHVuZGVmaW5lZCwKICAgICAgZW5hYmxlSnNvblJlc3BvbnNlOiB0cnVlLAogICAgfSk7CiAgICByZXMub24oImNsb3NlIiwgKCkgPT4gdHJhbnNwb3J0LmNsb3NlKCkpOwogICAgYXdhaXQgc2VydmVyLmNvbm5lY3QodHJhbnNwb3J0KTsKICAgIGF3YWl0IHRyYW5zcG9ydC5oYW5kbGVSZXF1ZXN0KHJlcSwgcmVzLCByZXEuYm9keSk7CiAgfSk7CgogIGNvbnN0IHBvcnQgPSBwYXJzZUludChwcm9jZXNzLmVudi5QT1JUIHx8ICIzMDAwIik7CiAgYXBwLmxpc3Rlbihwb3J0LCAoKSA9PiB7CiAgICBjb25zb2xlLmVycm9yKGBaT0hPIENSTSBNQ1AgU2VydmVyIHJ1bm5pbmcgb24gaHR0cDovL2xvY2FsaG9zdDoke3BvcnR9L21jcGApOwogIH0pOwp9Cgphc3luYyBmdW5jdGlvbiBydW5TdGRpbygpOiBQcm9taXNlPHZvaWQ+IHsKICBjb25zdCBzZXJ2ZXIgPSBjcmVhdGVTZXJ2ZXIoKTsKICBjb25zdCB0cmFuc3BvcnQgPSBuZXcgU3RkaW9TZXJ2ZXJUcmFuc3BvcnQoKTsKICBhd2FpdCBzZXJ2ZXIuY29ubmVjdCh0cmFuc3BvcnQpOwogIGNvbnNvbGUuZXJyb3IoIlpPSE8gQ1JNIE1DUCBTZXJ2ZXIgcnVubmluZyBvbiBzdGRpbyIpOwp9Cgpjb25zdCB0cmFuc3BvcnQgPSBwcm9jZXNzLmVudi5UUkFOU1BPUlQgfHwgImh0dHAiOwppZiAodHJhbnNwb3J0ID09PSAiaHR0cCIpIHsKICBydW5IVFRQKCkuY2F0Y2goKGVycikgPT4gewogICAgY29uc29sZS5lcnJvcigiU2VydmVyIGVycm9yOiIsIGVycik7CiAgICBwcm9jZXNzLmV4aXQoMSk7CiAgfSk7Cn0gZWxzZSB7CiAgcnVuU3RkaW8oKS5jYXRjaCgoZXJyKSA9PiB7CiAgICBjb25zb2xlLmVycm9yKCJTZXJ2ZXIgZXJyb3I6IiwgZXJyKTsKICAgIHByb2Nlc3MuZXhpdCgxKTsKICB9KTsKfQo=
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import express from "express";
+import { ZohoClient } from "./client.js";
+import { registerRecordTools } from "./tools/records.js";
+import { registerMetadataTools } from "./tools/metadata.js";
+import { registerTagTools, registerNoteTools, registerUserTools } from "./tools/tags-notes-users.js";
+import { registerAutomationTools } from "./tools/automation.js";
+import { registerActivityTools } from "./tools/activities.js";
+
+function createServer(): McpServer {
+  const server = new McpServer({
+    name: "zoho-crm-mcp-server",
+    version: "1.0.0",
+  });
+
+  const client = new ZohoClient();
+
+  registerRecordTools(server, client);
+  registerMetadataTools(server, client);
+  registerTagTools(server, client);
+  registerNoteTools(server, client);
+  registerUserTools(server, client);
+  registerAutomationTools(server, client);
+  registerActivityTools(server, client);
+
+  return server;
+}
+
+// Webhook handler: add/remove "נציג" tag on Contacts based on LinkingModule2 events
+async function handleNasigTag(
+  client: ZohoClient,
+  operation: string,
+  payload: Record<string, unknown>
+): Promise<{ success: boolean; message: string }> {
+  // Extract Contact ID from field1 - ZOHO sends it as object with id or as string
+  let contactId: string | null = null;
+
+  // Try payload.field1 (ZOHO sometimes includes field data)
+  const field1 = payload["field1"] as Record<string, unknown> | string | undefined;
+  if (field1 && typeof field1 === "object" && field1["id"]) {
+    contactId = String(field1["id"]);
+  } else if (field1 && typeof field1 === "string") {
+    contactId = field1;
+  }
+
+  // For insert: if no field1 in payload, fetch the record
+  if (!contactId && (operation === "insert" || operation === "create")) {
+    const ids = payload["ids"] as string | undefined;
+    const recordId = ids ? ids.split(",")[0].trim() : null;
+    if (recordId) {
+      try {
+        const result = await client.get<{ data: Record<string, unknown>[] }>(
+          `/LinkingModule2/${recordId}`
+        );
+        const record = result?.data?.[0];
+        const f1 = record?.["field1"] as Record<string, unknown> | undefined;
+        if (f1?.["id"]) {
+          contactId = String(f1["id"]);
+        }
+      } catch (err) {
+        console.error("[webhook] Failed to fetch LinkingModule2 record:", err);
+      }
+    }
+  }
+
+  if (!contactId) {
+    return { success: false, message: `Could not resolve Contact ID from payload. Operation: ${operation}` };
+  }
+
+  try {
+    if (operation === "insert" || operation === "create") {
+      // Add "נציג" tag
+      await client.post(`/Contacts/actions/add_tags`, {
+        ids: [contactId],
+        tags: [{ name: "נציג" }],
+      });
+      console.error(`[webhook] Added tag נציג to Contact ${contactId}`);
+      return { success: true, message: `Added tag נציג to Contact ${contactId}` };
+    } else if (operation === "delete") {
+      // Remove "נציג" tag
+      await client.delete(`/Contacts/actions/remove_tags`, {
+        ids: contactId,
+        tag_names: "נציג",
+      });
+      console.error(`[webhook] Removed tag נציג from Contact ${contactId}`);
+      return { success: true, message: `Removed tag נציג from Contact ${contactId}` };
+    } else {
+      return { success: false, message: `Unknown operation: ${operation}` };
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[webhook] Tag operation failed:`, msg);
+    return { success: false, message: msg };
+  }
+}
+
+async function runHTTP(): Promise<void> {
+  const app = express();
+  app.use(express.json());
+
+  const zohoClient = new ZohoClient();
+
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.0.0" });
+  });
+
+  // Webhook: receives ZOHO Notifications for LinkingModule2 create/delete
+  app.post("/webhook/zoho-tags", async (req, res) => {
+    try {
+      const body = req.body as Record<string, unknown>;
+      console.error("[webhook] Received:", JSON.stringify(body));
+
+      // ZOHO notification structure: body may have query_params or top-level fields
+      const queryParams = (body["query_params"] ?? body) as Record<string, unknown>;
+      const module = String(queryParams["module"] ?? "");
+      const operation = String(queryParams["operation"] ?? "").toLowerCase();
+      const ids = String(queryParams["ids"] ?? "");
+
+      if (module !== "LinkingModule2") {
+        return res.json({ ok: true, skipped: true, reason: "not LinkingModule2" });
+      }
+
+      // Merge top-level payload fields (ZOHO sometimes sends field data at root)
+      const enrichedPayload: Record<string, unknown> = {
+        ...body,
+        ids,
+        operation,
+      };
+
+      const result = await handleNasigTag(zohoClient, operation, enrichedPayload);
+      return res.json({ ok: result.success, message: result.message });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[webhook] Error:", msg);
+      return res.status(500).json({ ok: false, error: msg });
+    }
+  });
+
+  app.post("/mcp", async (req, res) => {
+    const server = createServer();
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true,
+    });
+    res.on("close", () => transport.close());
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  });
+
+  const port = parseInt(process.env.PORT || "3000");
+  app.listen(port, () => {
+    console.error(`ZOHO CRM MCP Server running on http://localhost:${port}/mcp`);
+    console.error(`Webhook endpoint: http://localhost:${port}/webhook/zoho-tags`);
+  });
+}
+
+async function runStdio(): Promise<void> {
+  const server = createServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("ZOHO CRM MCP Server running on stdio");
+}
+
+const transport = process.env.TRANSPORT || "http";
+if (transport === "http") {
+  runHTTP().catch((err) => {
+    console.error("Server error:", err);
+    process.exit(1);
+  });
+} else {
+  runStdio().catch((err) => {
+    console.error("Server error:", err);
+    process.exit(1);
+  });
+}
