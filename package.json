@@ -1,1 +1,24 @@
-ewogICJuYW1lIjogInpvaG8tY3JtLW1jcC1zZXJ2ZXIiLAogICJ2ZXJzaW9uIjogIjEuMC4wIiwKICAiZGVzY3JpcHRpb24iOiAiQ29tcHJlaGVuc2l2ZSBaT0hPIENSTSBNQ1AgU2VydmVyIC0gUmVjb3JkcywgQXV0b21hdGlvbiwgRnVuY3Rpb25zLCBXb3JrZmxvd3MiLAogICJtYWluIjogImRpc3QvaW5kZXguanMiLAogICJzY3JpcHRzIjogewogICAgImJ1aWxkIjogImVzYnVpbGQgc3JjL2luZGV4LnRzIC0tYnVuZGxlIC0tcGxhdGZvcm09bm9kZSAtLXRhcmdldD1ub2RlMjAgLS1vdXRmaWxlPWRpc3QvaW5kZXguanMgLS1leHRlcm5hbDpleHByZXNzIiwKICAgICJzdGFydCI6ICJub2RlIGRpc3QvaW5kZXguanMiLAogICAgImRldiI6ICJ0cy1ub2RlIHNyYy9pbmRleC50cyIKICB9LAogICJkZXBlbmRlbmNpZXMiOiB7CiAgICAiQG1vZGVsY29udGV4dHByb3RvY29sL3NkayI6ICJeMS4xMC4xIiwKICAgICJheGlvcyI6ICJeMS42LjAiLAogICAgImV4cHJlc3MiOiAiXjQuMTguMiIsCiAgICAiem9kIjogIl4zLjIyLjQiCiAgfSwKICAiZGV2RGVwZW5kZW5jaWVzIjogewogICAgIkB0eXBlcy9leHByZXNzIjogIl40LjE3LjIxIiwKICAgICJAdHlwZXMvbm9kZSI6ICJeMjAuMTEuMCIsCiAgICAiZXNidWlsZCI6ICJeMC4yMS4wIiwKICAgICJ0cy1ub2RlIjogIl4xMC45LjIiLAogICAgInR5cGVzY3JpcHQiOiAiXjUuMy4zIgogIH0KfQo=
+{
+  "name": "zoho-crm-mcp-server",
+  "version": "1.0.0",
+  "description": "Comprehensive ZOHO CRM MCP Server - Records, Automation, Functions, Workflows",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --external:express",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.1",
+    "axios": "^1.6.0",
+    "express": "^4.18.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.21.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
