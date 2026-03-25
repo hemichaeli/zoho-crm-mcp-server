@@ -53,13 +53,6 @@ async function renewNotification(): Promise<void> {
   const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   try {
     const token = await getZohoToken();
-    try {
-      await axios.delete(`${apiDomain}/crm/v2/actions/watch`, {
-        headers: { Authorization: `Zoho-oauthtoken ${token}` },
-        data: { watch: [{ channel_id: WEBHOOK_CHANNEL_ID }] },
-      });
-    } catch { /* channel may not exist yet */ }
-
     const result = await axios.post(
       `${apiDomain}/crm/v2/actions/watch`,
       {
@@ -87,9 +80,10 @@ async function renewNotification(): Promise<void> {
 async function addTag(contactId: string): Promise<void> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   const token = await getZohoToken();
+  // ZOHO add_tags: POST with tag_names (strings) + ids
   await axios.post(
     `${apiDomain}/crm/v7/Contacts/actions/add_tags`,
-    { ids: [contactId], tags: [{ name: "נציג" }] },
+    { tag_names: ["נציג"], ids: [contactId] },
     { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
   );
 }
@@ -97,10 +91,10 @@ async function addTag(contactId: string): Promise<void> {
 async function removeTag(contactId: string): Promise<void> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   const token = await getZohoToken();
-  // ZOHO v7: POST /Contacts/actions/remove_tags with ids+tags in body
+  // ZOHO remove_tags: POST with tag_names (strings) + ids
   await axios.post(
     `${apiDomain}/crm/v7/Contacts/actions/remove_tags`,
-    { ids: [contactId], tags: [{ name: "נציג" }] },
+    { tag_names: ["נציג"], ids: [contactId] },
     { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
   );
 }
@@ -135,7 +129,7 @@ async function handleNasigTag(
   if (!contactId && (operation === "insert" || operation === "create")) {
     const ids = payload["ids"] as string | undefined;
     const recordId = ids ? ids.split(",")[0].trim() : null;
-    if (recordId && recordId !== "test-ping" && recordId !== "test-check") {
+    if (recordId) {
       const token = await getZohoToken();
       contactId = await fetchContactIdFromLinkingRecord(recordId, token);
     }
