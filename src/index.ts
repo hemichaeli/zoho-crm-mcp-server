@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import express from "express";
+import axios from "axios";
 import { ZohoClient } from "./client.js";
 import { registerRecordTools } from "./tools/records.js";
 import { registerMetadataTools } from "./tools/metadata.js";
@@ -34,26 +35,62 @@ function createServer(): McpServer {
   return server;
 }
 
-// Renew ZOHO notification channel (max 24h per ZOHO limits)
-async function renewNotification(client: ZohoClient): Promise<void> {
+// Get a fresh ZOHO access token directly (bypasses ZohoClient's private method)
+async function getZohoToken(): Promise<string> {
+  const accountsDomain = process.env.ZOHO_ACCOUNTS_DOMAIN || "https://accounts.zoho.com";
+  const params = new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: process.env.ZOHO_CLIENT_ID || "",
+    client_secret: process.env.ZOHO_CLIENT_SECRET || "",
+    refresh_token: process.env.ZOHO_REFRESH_TOKEN || "",
+  });
+  const res = await axios.post(
+    `${accountsDomain}/oauth/v2/token`,
+    params.toString(),
+    { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+  );
+  return res.data.access_token as string;
+}
+
+// Renew ZOHO notification channel: delete existing + re-create with fresh 24h expiry
+async function renewNotification(): Promise<void> {
+  const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
   try {
-    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    const result = await client.post<{ watch: { code: string }[] }>("/actions/watch", {
-      watch: [
-        {
+    const token = await getZohoToken();
+
+    // Step 1: delete existing channel (use axios directly - body must go as `data`)
+    try {
+      await axios.delete(`${apiDomain}/crm/v2/actions/watch`, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        data: { watch: [{ channel_id: WEBHOOK_CHANNEL_ID }] },
+      });
+      console.error(`[cron] Deleted old notification channel ${WEBHOOK_CHANNEL_ID}`);
+    } catch {
+      // Ignore - channel may not exist yet
+    }
+
+    // Step 2: re-create with fresh 24h expiry
+    const result = await axios.post(
+      `${apiDomain}/crm/v2/actions/watch`,
+      {
+        watch: [{
           channel_id: WEBHOOK_CHANNEL_ID,
           events: WEBHOOK_EVENTS,
           channel_expiry: expiry,
           token: WEBHOOK_TOKEN,
           notify_url: WEBHOOK_URL,
-        },
-      ],
-    });
-    const code = result?.watch?.[0]?.code;
+        }],
+      },
+      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+    );
+
+    const code = result.data?.watch?.[0]?.code;
     if (code === "SUCCESS") {
-      console.error(`[cron] Notification renewed. Next expiry: ${expiry}`);
+      console.error(`[cron] Notification renewed until ${expiry}`);
     } else {
-      console.error(`[cron] Renewal returned unexpected code:`, JSON.stringify(result));
+      console.error(`[cron] Renewal unexpected response:`, JSON.stringify(result.data));
     }
   } catch (err) {
     console.error(`[cron] Notification renewal failed:`, err instanceof Error ? err.message : String(err));
@@ -68,7 +105,6 @@ async function handleNasigTag(
 ): Promise<{ success: boolean; message: string }> {
   let contactId: string | null = null;
 
-  // ZOHO sends field1 as object {id, name} or as string
   const field1 = payload["field1"] as Record<string, unknown> | string | undefined;
   if (field1 && typeof field1 === "object" && field1["id"]) {
     contactId = String(field1["id"]);
@@ -80,7 +116,7 @@ async function handleNasigTag(
   if (!contactId && (operation === "insert" || operation === "create")) {
     const ids = payload["ids"] as string | undefined;
     const recordId = ids ? ids.split(",")[0].trim() : null;
-    if (recordId) {
+    if (recordId && recordId !== "test-ping" && recordId !== "test-check") {
       try {
         const result = await client.get<{ data: Record<string, unknown>[] }>(
           `/LinkingModule2/${recordId}`
@@ -131,9 +167,9 @@ async function runHTTP(): Promise<void> {
 
   const zohoClient = new ZohoClient();
 
-  // Auto-renew notification every 23 hours
-  await renewNotification(zohoClient);
-  setInterval(() => renewNotification(zohoClient), RENEWAL_INTERVAL_MS);
+  // Renew notification channel now, then every 23 hours
+  await renewNotification();
+  setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.0.0" });
