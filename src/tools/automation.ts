@@ -33,7 +33,7 @@ export function registerAutomationTools(server: McpServer, client: ZohoClient): 
 
   server.tool(
     "zoho_create_workflow_rule",
-    "Create a new workflow automation rule",
+    "Create a new workflow automation rule in Zoho CRM. Supports triggers: on record create/edit/delete, field update, or scheduled. Actions can include tag updates, field updates, email alerts, webhooks, and Deluge functions.",
     {
       name: z.string().describe("Rule name"),
       module: z.string().describe("Module API name (e.g., Contacts, Leads)"),
@@ -117,6 +117,62 @@ export function registerAutomationTools(server: McpServer, client: ZohoClient): 
     },
     async (args) => {
       const result = await client.get(`/settings/functions/${args.function_id}`);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "zoho_create_function",
+    "Create a new Deluge custom function in Zoho CRM. Functions can be triggered by workflow rules, buttons, or schedules. Write Deluge code to automate complex business logic.",
+    {
+      name: z.string().describe("Function API name (alphanumeric, no spaces)"),
+      display_name: z.string().describe("Human-readable display name"),
+      source: z.string().describe("Deluge code for the function body"),
+      description: z.string().optional().describe("Function description"),
+      type: z.enum(["org", "module"]).optional().default("org").describe("Function scope: org-level or module-level"),
+      module: z.string().optional().describe("Module API name (required if type is 'module')"),
+      arguments: z.array(z.object({
+        name: z.string().describe("Argument name"),
+        type: z.string().describe("Argument type (e.g., STRING, INT, MAP)"),
+        description: z.string().optional().describe("Argument description"),
+      })).optional().describe("Input arguments for the function"),
+    },
+    async (args) => {
+      const funcData: Record<string, unknown> = {
+        name: args.name,
+        display_name: args.display_name,
+        source: args.source,
+        type: args.type || "org",
+      };
+      if (args.description) funcData.description = args.description;
+      if (args.module) funcData.module = { api_name: args.module };
+      if (args.arguments && args.arguments.length > 0) funcData.arguments = args.arguments;
+      const result = await client.post("/settings/functions", { functions: [funcData] });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "zoho_update_function",
+    "Update an existing Deluge function's code or metadata",
+    {
+      function_id: z.string().describe("Function ID"),
+      display_name: z.string().optional().describe("Updated display name"),
+      source: z.string().optional().describe("Updated Deluge code"),
+      description: z.string().optional().describe("Updated description"),
+      arguments: z.array(z.object({
+        name: z.string(),
+        type: z.string(),
+        description: z.string().optional(),
+      })).optional().describe("Updated input arguments"),
+    },
+    async (args) => {
+      const funcData: Record<string, unknown> = { id: args.function_id };
+      if (args.display_name !== undefined) funcData.display_name = args.display_name;
+      if (args.source !== undefined) funcData.source = args.source;
+      if (args.description !== undefined) funcData.description = args.description;
+      if (args.arguments !== undefined) funcData.arguments = args.arguments;
+      const result = await client.put(`/settings/functions/${args.function_id}`, { functions: [funcData] });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
   );
