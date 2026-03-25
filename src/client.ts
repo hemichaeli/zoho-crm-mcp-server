@@ -1,1 +1,122 @@
-aW1wb3J0IGF4aW9zLCB7IEF4aW9zSW5zdGFuY2UsIEF4aW9zRXJyb3IgfSBmcm9tICJheGlvcyI7CgppbnRlcmZhY2UgVG9rZW5DYWNoZSB7CiAgdG9rZW46IHN0cmluZzsKICBleHBpcmVzQXQ6IG51bWJlcjsKfQoKZXhwb3J0IGNsYXNzIFpvaG9DbGllbnQgewogIHByaXZhdGUgaHR0cENsaWVudDogQXhpb3NJbnN0YW5jZTsKICBwcml2YXRlIHRva2VuQ2FjaGU6IFRva2VuQ2FjaGUgfCBudWxsID0gbnVsbDsKICBwcml2YXRlIHJlYWRvbmx5IGJhc2VVcmw6IHN0cmluZzsKICBwcml2YXRlIHJlYWRvbmx5IGFjY291bnRzVXJsOiBzdHJpbmc7CiAgcHJpdmF0ZSByZWFkb25seSBjbGllbnRJZDogc3RyaW5nOwogIHByaXZhdGUgcmVhZG9ubHkgY2xpZW50U2VjcmV0OiBzdHJpbmc7CiAgcHJpdmF0ZSByZWFkb25seSByZWZyZXNoVG9rZW46IHN0cmluZzsKCiAgY29uc3RydWN0b3IoKSB7CiAgICB0aGlzLmJhc2VVcmwgPSBwcm9jZXNzLmVudi5aT0hPX0JBU0VfVVJMIHx8ICJodHRwczovL3d3dy56b2hvYXBpcy5jb20vY3JtL3Y3IjsKICAgIHRoaXMuYWNjb3VudHNVcmwgPSBwcm9jZXNzLmVudi5aT0hPX0FDQ09VTlRTX1VSTCB8fCAiaHR0cHM6Ly9hY2NvdW50cy56b2hvLmNvbSI7CiAgICB0aGlzLmNsaWVudElkID0gcHJvY2Vzcy5lbnYuWk9IT19DTElFTlRfSUQgfHwgIiI7CiAgICB0aGlzLmNsaWVudFNlY3JldCA9IHByb2Nlc3MuZW52LlpPSE9fQ0xJRU5UX1NFQ1JFVCB8fCAiIjsKICAgIHRoaXMucmVmcmVzaFRva2VuID0gcHJvY2Vzcy5lbnYuWk9IT19SRUZSRVNIX1RPS0VOIHx8ICIiOwoKICAgIGlmICghdGhpcy5jbGllbnRJZCB8fCAhdGhpcy5jbGllbnRTZWNyZXQgfHwgIXRoaXMucmVmcmVzaFRva2VuKSB7CiAgICAgIHRocm93IG5ldyBFcnJvcigiTWlzc2luZyByZXF1aXJlZCBlbnYgdmFyczogWk9IT19DTElFTlRfSUQsIFpPSE9fQ0xJRU5UX1NFQ1JFVCwgWk9IT19SRUZSRVNIX1RPS0VOIik7CiAgICB9CgogICAgdGhpcy5odHRwQ2xpZW50ID0gYXhpb3MuY3JlYXRlKHsgYmFzZVVSTDogdGhpcy5iYXNlVXJsIH0pOwogIH0KCiAgcHJpdmF0ZSBhc3luYyBnZXRBY2Nlc3NUb2tlbigpOiBQcm9taXNlPHN0cmluZz4gewogICAgY29uc3Qgbm93ID0gRGF0ZS5ub3coKTsKICAgIGlmICh0aGlzLnRva2VuQ2FjaGUgJiYgdGhpcy50b2tlbkNhY2hlLmV4cGlyZXNBdCA+IG5vdyArIDYwMDAwKSB7CiAgICAgIHJldHVybiB0aGlzLnRva2VuQ2FjaGUudG9rZW47CiAgICB9CgogICAgY29uc3QgcGFyYW1zID0gbmV3IFVSTFNlYXJjaFBhcmFtcyh7CiAgICAgIGdyYW50X3R5cGU6ICJyZWZyZXNoX3Rva2VuIiwKICAgICAgY2xpZW50X2lkOiB0aGlzLmNsaWVudElkLAogICAgICBjbGllbnRfc2VjcmV0OiB0aGlzLmNsaWVudFNlY3JldCwKICAgICAgcmVmcmVzaF90b2tlbjogdGhpcy5yZWZyZXNoVG9rZW4sCiAgICB9KTsKCiAgICBjb25zdCByZXNwb25zZSA9IGF3YWl0IGF4aW9zLnBvc3QoCiAgICAgIGAke3RoaXMuYWNjb3VudHNVcmx9L29hdXRoL3YyL3Rva2VuYCwKICAgICAgcGFyYW1zLnRvU3RyaW5nKCksCiAgICAgIHsgaGVhZGVyczogeyAiQ29udGVudC1UeXBlIjogImFwcGxpY2F0aW9uL3gtd3d3LWZvcm0tdXJsZW5jb2RlZCIgfSB9CiAgICApOwoKICAgIGNvbnN0IHsgYWNjZXNzX3Rva2VuLCBleHBpcmVzX2luIH0gPSByZXNwb25zZS5kYXRhOwogICAgdGhpcy50b2tlbkNhY2hlID0gewogICAgICB0b2tlbjogYWNjZXNzX3Rva2VuLAogICAgICBleHBpcmVzQXQ6IG5vdyArIChleHBpcmVzX2luIHx8IDM2MDApICogMTAwMCwKICAgIH07CgogICAgcmV0dXJuIGFjY2Vzc190b2tlbjsKICB9CgogIGFzeW5jIGdldDxUPihwYXRoOiBzdHJpbmcsIHBhcmFtcz86IFJlY29yZDxzdHJpbmcsIHVua25vd24+KTogUHJvbWlzZTxUPiB7CiAgICBjb25zdCB0b2tlbiA9IGF3YWl0IHRoaXMuZ2V0QWNjZXNzVG9rZW4oKTsKICAgIHRyeSB7CiAgICAgIGNvbnN0IHJlc3BvbnNlID0gYXdhaXQgdGhpcy5odHRwQ2xpZW50LmdldDxUPihwYXRoLCB7CiAgICAgICAgaGVhZGVyczogeyBBdXRob3JpemF0aW9uOiBgWm9oby1vYXV0aHRva2VuICR7dG9rZW59YCB9LAogICAgICAgIHBhcmFtcywKICAgICAgfSk7CiAgICAgIHJldHVybiByZXNwb25zZS5kYXRhOwogICAgfSBjYXRjaCAoZXJyKSB7CiAgICAgIHRocm93IHRoaXMuZm9ybWF0RXJyb3IoZXJyKTsKICAgIH0KICB9CgogIGFzeW5jIHBvc3Q8VD4ocGF0aDogc3RyaW5nLCBkYXRhPzogdW5rbm93biwgcGFyYW1zPzogUmVjb3JkPHN0cmluZywgdW5rbm93bj4pOiBQcm9taXNlPFQ+IHsKICAgIGNvbnN0IHRva2VuID0gYXdhaXQgdGhpcy5nZXRBY2Nlc3NUb2tlbigpOwogICAgdHJ5IHsKICAgICAgY29uc3QgcmVzcG9uc2UgPSBhd2FpdCB0aGlzLmh0dHBDbGllbnQucG9zdDxUPihwYXRoLCBkYXRhLCB7CiAgICAgICAgaGVhZGVyczogeyBBdXRob3JpemF0aW9uOiBgWm9oby1vYXV0aHRva2VuICR7dG9rZW59YCB9LAogICAgICAgIHBhcmFtcywKICAgICAgfSk7CiAgICAgIHJldHVybiByZXNwb25zZS5kYXRhOwogICAgfSBjYXRjaCAoZXJyKSB7CiAgICAgIHRocm93IHRoaXMuZm9ybWF0RXJyb3IoZXJyKTsKICAgIH0KICB9CgogIGFzeW5jIHB1dDxUPihwYXRoOiBzdHJpbmcsIGRhdGE/OiB1bmtub3duKTogUHJvbWlzZTxUPiB7CiAgICBjb25zdCB0b2tlbiA9IGF3YWl0IHRoaXMuZ2V0QWNjZXNzVG9rZW4oKTsKICAgIHRyeSB7CiAgICAgIGNvbnN0IHJlc3BvbnNlID0gYXdhaXQgdGhpcy5odHRwQ2xpZW50LnB1dDxUPihwYXRoLCBkYXRhLCB7CiAgICAgICAgaGVhZGVyczogeyBBdXRob3JpemF0aW9uOiBgWm9oby1vYXV0aHRva2VuICR7dG9rZW59YCB9LAogICAgICB9KTsKICAgICAgcmV0dXJuIHJlc3BvbnNlLmRhdGE7CiAgICB9IGNhdGNoIChlcnIpIHsKICAgICAgdGhyb3cgdGhpcy5mb3JtYXRFcnJvcihlcnIpOwogICAgfQogIH0KCiAgYXN5bmMgZGVsZXRlPFQ+KHBhdGg6IHN0cmluZywgcGFyYW1zPzogUmVjb3JkPHN0cmluZywgdW5rbm93bj4pOiBQcm9taXNlPFQ+IHsKICAgIGNvbnN0IHRva2VuID0gYXdhaXQgdGhpcy5nZXRBY2Nlc3NUb2tlbigpOwogICAgdHJ5IHsKICAgICAgY29uc3QgcmVzcG9uc2UgPSBhd2FpdCB0aGlzLmh0dHBDbGllbnQuZGVsZXRlPFQ+KHBhdGgsIHsKICAgICAgICBoZWFkZXJzOiB7IEF1dGhvcml6YXRpb246IGBab2hvLW9hdXRodG9rZW4gJHt0b2tlbn1gIH0sCiAgICAgICAgcGFyYW1zLAogICAgICB9KTsKICAgICAgcmV0dXJuIHJlc3BvbnNlLmRhdGE7CiAgICB9IGNhdGNoIChlcnIpIHsKICAgICAgdGhyb3cgdGhpcy5mb3JtYXRFcnJvcihlcnIpOwogICAgfQogIH0KCiAgcHJpdmF0ZSBmb3JtYXRFcnJvcihlcnI6IHVua25vd24pOiBFcnJvciB7CiAgICBpZiAoYXhpb3MuaXNBeGlvc0Vycm9yKGVycikpIHsKICAgICAgY29uc3QgYXhpb3NFcnIgPSBlcnIgYXMgQXhpb3NFcnJvcjx7IGNvZGU/OiBzdHJpbmc7IG1lc3NhZ2U/OiBzdHJpbmc7IGRldGFpbHM/OiB1bmtub3duIH0+OwogICAgICBjb25zdCBzdGF0dXMgPSBheGlvc0Vyci5yZXNwb25zZT8uc3RhdHVzOwogICAgICBjb25zdCBib2R5ID0gYXhpb3NFcnIucmVzcG9uc2U/LmRhdGE7CiAgICAgIGNvbnN0IGNvZGUgPSBib2R5Py5jb2RlIHx8ICJVTktOT1dOIjsKICAgICAgY29uc3QgbWVzc2FnZSA9IGJvZHk/Lm1lc3NhZ2UgfHwgYXhpb3NFcnIubWVzc2FnZTsKICAgICAgY29uc3QgZGV0YWlscyA9IGJvZHk/LmRldGFpbHMgPyBgIERldGFpbHM6ICR7SlNPTi5zdHJpbmdpZnkoYm9keS5kZXRhaWxzKX1gIDogIiI7CiAgICAgIHJldHVybiBuZXcgRXJyb3IoYFpPSE8gQVBJIEVycm9yIFske3N0YXR1c31dICR7Y29kZX06ICR7bWVzc2FnZX0ke2RldGFpbHN9YCk7CiAgICB9CiAgICByZXR1cm4gZXJyIGluc3RhbmNlb2YgRXJyb3IgPyBlcnIgOiBuZXcgRXJyb3IoU3RyaW5nKGVycikpOwogIH0KfQo=
+import axios, { AxiosInstance, AxiosError } from "axios";
+
+interface TokenCache {
+  token: string;
+  expiresAt: number;
+}
+
+export class ZohoClient {
+  private httpClient: AxiosInstance;
+  private tokenCache: TokenCache | null = null;
+  private readonly baseUrl: string;
+  private readonly accountsUrl: string;
+  private readonly clientId: string;
+  private readonly clientSecret: string;
+  private readonly refreshToken: string;
+
+  constructor() {
+    this.baseUrl = process.env.ZOHO_BASE_URL || "https://www.zohoapis.com/crm/v7";
+    this.accountsUrl = process.env.ZOHO_ACCOUNTS_URL || "https://accounts.zoho.com";
+    this.clientId = process.env.ZOHO_CLIENT_ID || "";
+    this.clientSecret = process.env.ZOHO_CLIENT_SECRET || "";
+    this.refreshToken = process.env.ZOHO_REFRESH_TOKEN || "";
+
+    if (!this.clientId || !this.clientSecret || !this.refreshToken) {
+      throw new Error("Missing required env vars: ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN");
+    }
+
+    this.httpClient = axios.create({ baseURL: this.baseUrl });
+  }
+
+  private async getAccessToken(): Promise<string> {
+    const now = Date.now();
+    if (this.tokenCache && this.tokenCache.expiresAt > now + 60000) {
+      return this.tokenCache.token;
+    }
+
+    const params = new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      refresh_token: this.refreshToken,
+    });
+
+    const response = await axios.post(
+      `${this.accountsUrl}/oauth/v2/token`,
+      params.toString(),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+    );
+
+    const { access_token, expires_in } = response.data;
+    this.tokenCache = {
+      token: access_token,
+      expiresAt: now + (expires_in || 3600) * 1000,
+    };
+
+    return access_token;
+  }
+
+  async get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
+    const token = await this.getAccessToken();
+    try {
+      const response = await this.httpClient.get<T>(path, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        params,
+      });
+      return response.data;
+    } catch (err) {
+      throw this.formatError(err);
+    }
+  }
+
+  async post<T>(path: string, data?: unknown, params?: Record<string, unknown>): Promise<T> {
+    const token = await this.getAccessToken();
+    try {
+      const response = await this.httpClient.post<T>(path, data, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        params,
+      });
+      return response.data;
+    } catch (err) {
+      throw this.formatError(err);
+    }
+  }
+
+  async put<T>(path: string, data?: unknown): Promise<T> {
+    const token = await this.getAccessToken();
+    try {
+      const response = await this.httpClient.put<T>(path, data, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      });
+      return response.data;
+    } catch (err) {
+      throw this.formatError(err);
+    }
+  }
+
+  async delete<T>(path: string, params?: Record<string, unknown>): Promise<T> {
+    const token = await this.getAccessToken();
+    try {
+      const response = await this.httpClient.delete<T>(path, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        params,
+      });
+      return response.data;
+    } catch (err) {
+      throw this.formatError(err);
+    }
+  }
+
+  private formatError(err: unknown): Error {
+    if (axios.isAxiosError(err)) {
+      const axiosErr = err as AxiosError<{ code?: string; message?: string; details?: unknown }>;
+      const status = axiosErr.response?.status;
+      const body = axiosErr.response?.data;
+      const code = body?.code || "UNKNOWN";
+      const message = body?.message || axiosErr.message;
+      const details = body?.details ? ` Details: ${JSON.stringify(body.details)}` : "";
+      return new Error(`ZOHO API Error [${status}] ${code}: ${message}${details}`);
+    }
+    return err instanceof Error ? err : new Error(String(err));
+  }
+}
