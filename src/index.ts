@@ -48,9 +48,17 @@ async function getZohoToken(): Promise<string> {
   return res.data.access_token as string;
 }
 
+// ZOHO expects "yyyy-MM-dd'T'HH:mm:ss+00:00" - NOT ISO with milliseconds
+function zohoExpiryDate(offsetMs: number): string {
+  const d = new Date(Date.now() + offsetMs);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T` +
+    `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}+00:00`;
+}
+
 async function renewNotification(): Promise<void> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
-  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const expiry = zohoExpiryDate(24 * 60 * 60 * 1000);
   try {
     const token = await getZohoToken();
     const result = await axios.post(
@@ -90,7 +98,6 @@ async function addTag(contactId: string): Promise<void> {
 async function removeTag(contactId: string): Promise<void> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   const token = await getZohoToken();
-  // ZOHO v7: POST with tags(objects) + ids(array)
   await axios.post(
     `${apiDomain}/crm/v7/Contacts/actions/remove_tags`,
     { tags: [{ name: "נציג" }], ids: [contactId] },
