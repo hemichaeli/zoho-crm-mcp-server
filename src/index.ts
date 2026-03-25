@@ -80,10 +80,9 @@ async function renewNotification(): Promise<void> {
 async function addTag(contactId: string): Promise<void> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   const token = await getZohoToken();
-  // ZOHO add_tags: POST with tag_names (strings) + ids
   await axios.post(
     `${apiDomain}/crm/v7/Contacts/actions/add_tags`,
-    { tag_names: ["נציג"], ids: [contactId] },
+    { tags: [{ name: "נציג" }], ids: [contactId] },
     { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
   );
 }
@@ -91,10 +90,10 @@ async function addTag(contactId: string): Promise<void> {
 async function removeTag(contactId: string): Promise<void> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   const token = await getZohoToken();
-  // ZOHO remove_tags: POST with tag_names (strings) + ids
+  // ZOHO v7: POST with tags(objects) + ids(array)
   await axios.post(
     `${apiDomain}/crm/v7/Contacts/actions/remove_tags`,
-    { tag_names: ["נציג"], ids: [contactId] },
+    { tags: [{ name: "נציג" }], ids: [contactId] },
     { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
   );
 }
