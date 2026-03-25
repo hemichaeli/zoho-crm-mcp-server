@@ -9,6 +9,12 @@ import { registerTagTools, registerNoteTools, registerUserTools } from "./tools/
 import { registerAutomationTools } from "./tools/automation.js";
 import { registerActivityTools } from "./tools/activities.js";
 
+const WEBHOOK_CHANNEL_ID = "77001";
+const WEBHOOK_URL = "https://zoho-crm-mcp-server-production-f0c4.up.railway.app/webhook/zoho-tags";
+const WEBHOOK_TOKEN = "nasig-tag-automation";
+const WEBHOOK_EVENTS = ["LinkingModule2.create", "LinkingModule2.delete"];
+const RENEWAL_INTERVAL_MS = 23 * 60 * 60 * 1000; // 23 hours
+
 function createServer(): McpServer {
   const server = new McpServer({
     name: "zoho-crm-mcp-server",
@@ -28,16 +34,41 @@ function createServer(): McpServer {
   return server;
 }
 
+// Renew ZOHO notification channel (max 24h per ZOHO limits)
+async function renewNotification(client: ZohoClient): Promise<void> {
+  try {
+    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const result = await client.post<{ watch: { code: string }[] }>("/actions/watch", {
+      watch: [
+        {
+          channel_id: WEBHOOK_CHANNEL_ID,
+          events: WEBHOOK_EVENTS,
+          channel_expiry: expiry,
+          token: WEBHOOK_TOKEN,
+          notify_url: WEBHOOK_URL,
+        },
+      ],
+    });
+    const code = result?.watch?.[0]?.code;
+    if (code === "SUCCESS") {
+      console.error(`[cron] Notification renewed. Next expiry: ${expiry}`);
+    } else {
+      console.error(`[cron] Renewal returned unexpected code:`, JSON.stringify(result));
+    }
+  } catch (err) {
+    console.error(`[cron] Notification renewal failed:`, err instanceof Error ? err.message : String(err));
+  }
+}
+
 // Webhook handler: add/remove "נציג" tag on Contacts based on LinkingModule2 events
 async function handleNasigTag(
   client: ZohoClient,
   operation: string,
   payload: Record<string, unknown>
 ): Promise<{ success: boolean; message: string }> {
-  // Extract Contact ID from field1 - ZOHO sends it as object with id or as string
   let contactId: string | null = null;
 
-  // Try payload.field1 (ZOHO sometimes includes field data)
+  // ZOHO sends field1 as object {id, name} or as string
   const field1 = payload["field1"] as Record<string, unknown> | string | undefined;
   if (field1 && typeof field1 === "object" && field1["id"]) {
     contactId = String(field1["id"]);
@@ -45,7 +76,7 @@ async function handleNasigTag(
     contactId = field1;
   }
 
-  // For insert: if no field1 in payload, fetch the record
+  // If field1 not in payload, fetch the record
   if (!contactId && (operation === "insert" || operation === "create")) {
     const ids = payload["ids"] as string | undefined;
     const recordId = ids ? ids.split(",")[0].trim() : null;
@@ -66,12 +97,11 @@ async function handleNasigTag(
   }
 
   if (!contactId) {
-    return { success: false, message: `Could not resolve Contact ID from payload. Operation: ${operation}` };
+    return { success: false, message: `Could not resolve Contact ID. Operation: ${operation}` };
   }
 
   try {
     if (operation === "insert" || operation === "create") {
-      // Add "נציג" tag
       await client.post(`/Contacts/actions/add_tags`, {
         ids: [contactId],
         tags: [{ name: "נציג" }],
@@ -79,7 +109,6 @@ async function handleNasigTag(
       console.error(`[webhook] Added tag נציג to Contact ${contactId}`);
       return { success: true, message: `Added tag נציג to Contact ${contactId}` };
     } else if (operation === "delete") {
-      // Remove "נציג" tag
       await client.delete(`/Contacts/actions/remove_tags`, {
         ids: contactId,
         tag_names: "נציג",
@@ -102,6 +131,10 @@ async function runHTTP(): Promise<void> {
 
   const zohoClient = new ZohoClient();
 
+  // Auto-renew notification every 23 hours
+  await renewNotification(zohoClient);
+  setInterval(() => renewNotification(zohoClient), RENEWAL_INTERVAL_MS);
+
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.0.0" });
   });
@@ -112,7 +145,6 @@ async function runHTTP(): Promise<void> {
       const body = req.body as Record<string, unknown>;
       console.error("[webhook] Received:", JSON.stringify(body));
 
-      // ZOHO notification structure: body may have query_params or top-level fields
       const queryParams = (body["query_params"] ?? body) as Record<string, unknown>;
       const module = String(queryParams["module"] ?? "");
       const operation = String(queryParams["operation"] ?? "").toLowerCase();
@@ -122,13 +154,7 @@ async function runHTTP(): Promise<void> {
         return res.json({ ok: true, skipped: true, reason: "not LinkingModule2" });
       }
 
-      // Merge top-level payload fields (ZOHO sometimes sends field data at root)
-      const enrichedPayload: Record<string, unknown> = {
-        ...body,
-        ids,
-        operation,
-      };
-
+      const enrichedPayload: Record<string, unknown> = { ...body, ids, operation };
       const result = await handleNasigTag(zohoClient, operation, enrichedPayload);
       return res.json({ ok: result.success, message: result.message });
     } catch (err) {
@@ -152,7 +178,7 @@ async function runHTTP(): Promise<void> {
   const port = parseInt(process.env.PORT || "3000");
   app.listen(port, () => {
     console.error(`ZOHO CRM MCP Server running on http://localhost:${port}/mcp`);
-    console.error(`Webhook endpoint: http://localhost:${port}/webhook/zoho-tags`);
+    console.error(`Webhook: http://localhost:${port}/webhook/zoho-tags`);
   });
 }
 
