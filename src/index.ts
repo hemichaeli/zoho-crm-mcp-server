@@ -21,9 +21,7 @@ function createServer(): McpServer {
     name: "zoho-crm-mcp-server",
     version: "1.0.0",
   });
-
   const client = new ZohoClient();
-
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
   registerTagTools(server, client);
@@ -31,7 +29,6 @@ function createServer(): McpServer {
   registerUserTools(server, client);
   registerAutomationTools(server, client);
   registerActivityTools(server, client);
-
   return server;
 }
 
@@ -61,7 +58,7 @@ async function renewNotification(): Promise<void> {
         headers: { Authorization: `Zoho-oauthtoken ${token}` },
         data: { watch: [{ channel_id: WEBHOOK_CHANNEL_ID }] },
       });
-    } catch { /* ignore - channel may not exist */ }
+    } catch { /* channel may not exist yet */ }
 
     const result = await axios.post(
       `${apiDomain}/crm/v2/actions/watch`,
@@ -100,11 +97,10 @@ async function addTag(contactId: string): Promise<void> {
 async function removeTag(contactId: string): Promise<void> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   const token = await getZohoToken();
-  // ZOHO remove_tags uses POST with query params - DELETE with body is rejected
-  const tagEncoded = encodeURIComponent("נציג");
+  // ZOHO v7: POST /Contacts/actions/remove_tags with ids+tags in body
   await axios.post(
-    `${apiDomain}/crm/v7/Contacts/actions/remove_tags?ids=${contactId}&tag_names=${tagEncoded}`,
-    {},
+    `${apiDomain}/crm/v7/Contacts/actions/remove_tags`,
+    { ids: [contactId], tags: [{ name: "נציג" }] },
     { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
   );
 }
@@ -116,8 +112,7 @@ async function fetchContactIdFromLinkingRecord(recordId: string, token: string):
       `${apiDomain}/crm/v7/LinkingModule2/${recordId}`,
       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
     );
-    const record = res.data?.data?.[0];
-    const f1 = record?.field1;
+    const f1 = res.data?.data?.[0]?.field1;
     return f1?.id ? String(f1.id) : null;
   } catch {
     return null;
@@ -130,7 +125,6 @@ async function handleNasigTag(
 ): Promise<{ success: boolean; message: string }> {
   let contactId: string | null = null;
 
-  // ZOHO sends field1 as {id, name} object in the notification payload
   const field1 = payload["field1"] as Record<string, unknown> | string | undefined;
   if (field1 && typeof field1 === "object" && field1["id"]) {
     contactId = String(field1["id"]);
@@ -138,7 +132,6 @@ async function handleNasigTag(
     contactId = field1;
   }
 
-  // If field1 not in payload, fetch the record from ZOHO
   if (!contactId && (operation === "insert" || operation === "create")) {
     const ids = payload["ids"] as string | undefined;
     const recordId = ids ? ids.split(",")[0].trim() : null;
@@ -186,7 +179,6 @@ async function runHTTP(): Promise<void> {
     try {
       const body = req.body as Record<string, unknown>;
       console.error("[webhook] Received:", JSON.stringify(body));
-
       const queryParams = (body["query_params"] ?? body) as Record<string, unknown>;
       const module = String(queryParams["module"] ?? "");
       const operation = String(queryParams["operation"] ?? "").toLowerCase();
