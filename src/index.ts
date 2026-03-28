@@ -16,11 +16,24 @@ const WEBHOOK_TOKEN = "nasig-tag-automation";
 const WEBHOOK_EVENTS = ["LinkingModule2.create", "LinkingModule2.delete"];
 const RENEWAL_INTERVAL_MS = 23 * 60 * 60 * 1000;
 
+// Enterprise name → short tag slug
+const ENTERPRISE_TAG_MAP: Record<string, string> = {
+  "מתחם עיבוי וחיזוק בן גוריון - הכשרת הישוב": "בן-גוריון",
+  "ראשון לציון - ז'בוטינסקי": "ז'בוטינסקי",
+  "אור יהודה - החצב / יקותיאל אדם": "אור-יהודה",
+  "רמת גן - תפארת ישראל": "רמת-גן",
+};
+
+interface BuildingInfo {
+  id: string;
+  enterpriseSlug: string;   // e.g. "בן-גוריון"
+  subZone: string;          // e.g. "B"
+  street: string;           // e.g. "דוד-רזיאל"
+  streetNum: string;        // e.g. "16"
+}
+
 function createServer(): McpServer {
-  const server = new McpServer({
-    name: "zoho-crm-mcp-server",
-    version: "1.0.0",
-  });
+  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.0.0" });
   const client = new ZohoClient();
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
@@ -48,7 +61,6 @@ async function getZohoToken(): Promise<string> {
   return res.data.access_token as string;
 }
 
-// ZOHO expects "yyyy-MM-dd'T'HH:mm:ss+00:00" - NOT ISO with milliseconds
 function zohoExpiryDate(offsetMs: number): string {
   const d = new Date(Date.now() + offsetMs);
   const p = (n: number) => String(n).padStart(2, "0");
@@ -63,81 +75,159 @@ async function renewNotification(): Promise<void> {
     const token = await getZohoToken();
     const result = await axios.post(
       `${apiDomain}/crm/v2/actions/watch`,
-      {
-        watch: [{
-          channel_id: WEBHOOK_CHANNEL_ID,
-          events: WEBHOOK_EVENTS,
-          channel_expiry: expiry,
-          token: WEBHOOK_TOKEN,
-          notify_url: WEBHOOK_URL,
-        }],
-      },
+      { watch: [{ channel_id: WEBHOOK_CHANNEL_ID, events: WEBHOOK_EVENTS, channel_expiry: expiry, token: WEBHOOK_TOKEN, notify_url: WEBHOOK_URL }] },
       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
     );
     const code = result.data?.watch?.[0]?.code;
-    if (code === "SUCCESS") {
-      console.error(`[cron] Notification renewed until ${expiry}`);
-    } else {
-      console.error(`[cron] Renewal unexpected:`, JSON.stringify(result.data));
-    }
+    console.error(code === "SUCCESS" ? `[cron] Notification renewed until ${expiry}` : `[cron] Renewal unexpected: ${JSON.stringify(result.data)}`);
   } catch (err) {
     console.error(`[cron] Renewal failed:`, err instanceof Error ? err.message : String(err));
   }
 }
 
-async function addTag(contactId: string): Promise<void> {
-  const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
-  const token = await getZohoToken();
-  await axios.post(
-    `${apiDomain}/crm/v7/Contacts/actions/add_tags`,
-    { tags: [{ name: "נציג" }], ids: [contactId] },
-    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-  );
-}
-
-async function removeTag(contactId: string): Promise<void> {
-  const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
-  const token = await getZohoToken();
-  await axios.post(
-    `${apiDomain}/crm/v7/Contacts/actions/remove_tags`,
-    { tags: [{ name: "נציג" }], ids: [contactId] },
-    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-  );
-}
-
-async function fetchContactIdFromLinkingRecord(recordId: string, token: string): Promise<string | null> {
+// Fetch building details needed to compute tags
+async function fetchBuildingInfo(buildingId: string, token: string): Promise<BuildingInfo | null> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   try {
     const res = await axios.get(
-      `${apiDomain}/crm/v7/LinkingModule2/${recordId}`,
+      `${apiDomain}/crm/v7/Buildings/${buildingId}?fields=id,Street,field4,field,enterptise`,
       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
     );
-    const f1 = res.data?.data?.[0]?.field1;
-    return f1?.id ? String(f1.id) : null;
+    const b = res.data?.data?.[0];
+    if (!b) return null;
+    const entName = b.enterptise?.name || "";
+    const entSlug = ENTERPRISE_TAG_MAP[entName] || entName.replace(/\s+/g, "-").substring(0, 20);
+    const subZone = b.field?.name || "";
+    const street = (b.Street || "").replace(/\s+/g, "-");
+    const streetNum = String(b.field4 || "");
+    return { id: buildingId, enterpriseSlug: entSlug, subZone, street, streetNum };
   } catch {
     return null;
   }
 }
 
-async function handleNasigTag(
+// Compute the 4 tags for a building
+function buildingToTags(b: BuildingInfo): string[] {
+  const tags: string[] = ["נציג"];
+  if (b.enterpriseSlug) tags.push(`נציג-${b.enterpriseSlug}`);
+  if (b.enterpriseSlug && b.subZone) tags.push(`נציג-${b.enterpriseSlug}-${b.subZone}`);
+  if (b.street && b.streetNum) tags.push(`נציג-${b.street}-${b.streetNum}`);
+  return tags;
+}
+
+// Fetch all current LinkingModule2 records for a contact (remaining assignments)
+async function fetchContactBuildings(contactId: string, token: string): Promise<BuildingInfo[]> {
+  const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
+  try {
+    // Search LinkingModule2 where field1 = contactId
+    const res = await axios.get(
+      `${apiDomain}/crm/v7/LinkingModule2?fields=id,field0,field1&per_page=200`,
+      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+    );
+    const records = res.data?.data || [];
+    const buildingIds: string[] = records
+      .filter((r: Record<string, unknown>) => {
+        const f1 = r.field1 as Record<string, string> | undefined;
+        return f1?.id === contactId;
+      })
+      .map((r: Record<string, unknown>) => {
+        const f0 = r.field0 as Record<string, string> | undefined;
+        return f0?.id || "";
+      })
+      .filter(Boolean);
+
+    const buildings: BuildingInfo[] = [];
+    for (const bid of buildingIds) {
+      const info = await fetchBuildingInfo(bid, token);
+      if (info) buildings.push(info);
+    }
+    return buildings;
+  } catch {
+    return [];
+  }
+}
+
+// Set or clear field68 (נציג/ה checkbox) on Assets where field19 = contactId
+async function updateAssetNasigCheckbox(contactId: string, buildingId: string | null, value: boolean, token: string): Promise<void> {
+  const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
+  try {
+    // Fetch Assets where field19 = contactId (and optionally field16 = buildingId)
+    const res = await axios.get(
+      `${apiDomain}/crm/v7/Assets?fields=id,field19,field16,field68&per_page=200`,
+      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+    );
+    const assets = res.data?.data || [];
+
+    const toUpdate = assets.filter((a: Record<string, unknown>) => {
+      const f19 = a.field19 as Record<string, string> | undefined;
+      if (f19?.id !== contactId) return false;
+      // If setting true and we have a buildingId, only update assets in that building
+      if (value && buildingId) {
+        const f16 = a.field16 as Record<string, string> | undefined;
+        return f16?.id === buildingId;
+      }
+      return true;
+    });
+
+    if (toUpdate.length === 0) return;
+
+    const updates = toUpdate.map((a: Record<string, unknown>) => ({ id: a.id, field68: value }));
+
+    // Update in batches of 100
+    for (let i = 0; i < updates.length; i += 100) {
+      const batch = updates.slice(i, i + 100);
+      await axios.put(
+        `${apiDomain}/crm/v7/Assets`,
+        { data: batch },
+        { headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" } }
+      );
+    }
+    console.error(`[webhook] Updated field68=${value} on ${toUpdate.length} assets for contact ${contactId}`);
+  } catch (err) {
+    console.error(`[webhook] updateAssetNasigCheckbox failed:`, err instanceof Error ? err.message : String(err));
+  }
+}
+
+async function handleNasigOperation(
   operation: string,
   payload: Record<string, unknown>
 ): Promise<{ success: boolean; message: string }> {
+  const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
+
+  // Resolve contactId and buildingId from payload
   let contactId: string | null = null;
+  let buildingId: string | null = null;
 
   const field1 = payload["field1"] as Record<string, unknown> | string | undefined;
-  if (field1 && typeof field1 === "object" && field1["id"]) {
-    contactId = String(field1["id"]);
+  const field0 = payload["field0"] as Record<string, unknown> | string | undefined;
+
+  if (field1 && typeof field1 === "object" && (field1 as Record<string,string>)["id"]) {
+    contactId = String((field1 as Record<string,string>)["id"]);
   } else if (field1 && typeof field1 === "string") {
     contactId = field1;
   }
 
-  if (!contactId && (operation === "insert" || operation === "create")) {
+  if (field0 && typeof field0 === "object" && (field0 as Record<string,string>)["id"]) {
+    buildingId = String((field0 as Record<string,string>)["id"]);
+  } else if (field0 && typeof field0 === "string") {
+    buildingId = field0;
+  }
+
+  // If missing, fetch the LinkingModule2 record
+  if ((!contactId || !buildingId) && (operation === "insert" || operation === "create")) {
     const ids = payload["ids"] as string | undefined;
     const recordId = ids ? ids.split(",")[0].trim() : null;
     if (recordId) {
-      const token = await getZohoToken();
-      contactId = await fetchContactIdFromLinkingRecord(recordId, token);
+      try {
+        const token = await getZohoToken();
+        const res = await axios.get(
+          `${apiDomain}/crm/v7/LinkingModule2/${recordId}`,
+          { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+        );
+        const rec = res.data?.data?.[0];
+        if (!contactId) contactId = rec?.field1?.id ? String(rec.field1.id) : null;
+        if (!buildingId) buildingId = rec?.field0?.id ? String(rec.field0.id) : null;
+      } catch { /* ignore */ }
     }
   }
 
@@ -146,20 +236,73 @@ async function handleNasigTag(
   }
 
   try {
+    const token = await getZohoToken();
+
     if (operation === "insert" || operation === "create") {
-      await addTag(contactId);
-      console.error(`[webhook] Added tag נציג to Contact ${contactId}`);
-      return { success: true, message: `Added tag נציג to Contact ${contactId}` };
+      // --- ADD: compute tags for the new building and add them ---
+      let tagsToAdd = ["נציג"];
+      if (buildingId) {
+        const bInfo = await fetchBuildingInfo(buildingId, token);
+        if (bInfo) tagsToAdd = buildingToTags(bInfo);
+      }
+
+      await axios.post(
+        `${apiDomain}/crm/v7/Contacts/actions/add_tags`,
+        { ids: [contactId], tags: tagsToAdd.map(n => ({ name: n })) },
+        { headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" } }
+      );
+
+      // Set field68 = true on Asset(s) of this contact in this building
+      await updateAssetNasigCheckbox(contactId, buildingId, true, token);
+
+      console.error(`[webhook] ADD: contact ${contactId} tags: ${tagsToAdd.join(", ")}`);
+      return { success: true, message: `Added tags: ${tagsToAdd.join(", ")} to Contact ${contactId}` };
+
     } else if (operation === "delete") {
-      await removeTag(contactId);
-      console.error(`[webhook] Removed tag נציג from Contact ${contactId}`);
-      return { success: true, message: `Removed tag נציג from Contact ${contactId}` };
+      // --- REMOVE: recalculate all remaining tags, remove orphaned ones ---
+      const remainingBuildings = await fetchContactBuildings(contactId, token);
+      const remainingTags = new Set<string>();
+      remainingBuildings.forEach(b => buildingToTags(b).forEach(t => remainingTags.add(t)));
+
+      // All possible tags
+      const allPossibleTags = ["נציג",
+        ...Object.values(ENTERPRISE_TAG_MAP).map(s => `נציג-${s}`),
+        // We don't know all sub/building tags, so fetch current tags from contact
+      ];
+
+      // Fetch current contact tags
+      const cRes = await axios.get(
+        `${apiDomain}/crm/v7/Contacts/${contactId}?fields=Tag`,
+        { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+      );
+      const currentTags: string[] = (cRes.data?.data?.[0]?.Tag || []).map((t: Record<string,string>) => t.name);
+      const nasigTags = currentTags.filter(t => t.startsWith("נציג"));
+      const tagsToRemove = nasigTags.filter(t => !remainingTags.has(t));
+
+      if (tagsToRemove.length > 0) {
+        await axios.post(
+          `${apiDomain}/crm/v7/Contacts/actions/remove_tags`,
+          { ids: [contactId], tags: tagsToRemove.map(n => ({ name: n })) },
+          { headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update field68 checkbox on assets
+      const isStillNasig = remainingBuildings.length > 0;
+      await updateAssetNasigCheckbox(contactId, null, false, token);
+      // Re-set true for buildings still assigned
+      for (const rb of remainingBuildings) {
+        await updateAssetNasigCheckbox(contactId, rb.id, true, token);
+      }
+
+      console.error(`[webhook] DELETE: contact ${contactId} removed tags: ${tagsToRemove.join(", ")} | still נציג: ${isStillNasig}`);
+      return { success: true, message: `Removed tags: ${tagsToRemove.join(", ")} from Contact ${contactId}` };
     } else {
       return { success: false, message: `Unknown operation: ${operation}` };
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[webhook] Tag operation failed:`, msg);
+    console.error(`[webhook] Operation failed:`, msg);
     return { success: false, message: msg };
   }
 }
@@ -189,7 +332,7 @@ async function runHTTP(): Promise<void> {
       }
 
       const enrichedPayload: Record<string, unknown> = { ...body, ids, operation };
-      const result = await handleNasigTag(operation, enrichedPayload);
+      const result = await handleNasigOperation(operation, enrichedPayload);
       return res.json({ ok: result.success, message: result.message });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -200,10 +343,7 @@ async function runHTTP(): Promise<void> {
 
   app.post("/mcp", async (req, res) => {
     const server = createServer();
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true,
-    });
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on("close", () => transport.close());
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
@@ -225,13 +365,7 @@ async function runStdio(): Promise<void> {
 
 const transport = process.env.TRANSPORT || "http";
 if (transport === "http") {
-  runHTTP().catch((err) => {
-    console.error("Server error:", err);
-    process.exit(1);
-  });
+  runHTTP().catch((err) => { console.error("Server error:", err); process.exit(1); });
 } else {
-  runStdio().catch((err) => {
-    console.error("Server error:", err);
-    process.exit(1);
-  });
+  runStdio().catch((err) => { console.error("Server error:", err); process.exit(1); });
 }
