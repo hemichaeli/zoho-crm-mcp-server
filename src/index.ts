@@ -9,6 +9,10 @@ import { registerMetadataTools } from "./tools/metadata.js";
 import { registerTagTools, registerNoteTools, registerUserTools } from "./tools/tags-notes-users.js";
 import { registerAutomationTools } from "./tools/automation.js";
 import { registerActivityTools } from "./tools/activities.js";
+import { registerCalendarTools } from "./tools/calendar.js";
+import { registerOperationTools } from "./tools/operations.js";
+import { registerRelatedTools } from "./tools/related.js";
+import { registerUserTools as registerExtendedUserTools } from "./tools/users.js";
 
 const WEBHOOK_CHANNEL_ID = "77001";
 const WEBHOOK_URL = "https://zoho-crm-mcp-server-production-f0c4.up.railway.app/webhook/zoho-tags";
@@ -16,24 +20,24 @@ const WEBHOOK_TOKEN = "nasig-tag-automation";
 const WEBHOOK_EVENTS = ["LinkingModule2.create", "LinkingModule2.delete"];
 const RENEWAL_INTERVAL_MS = 23 * 60 * 60 * 1000;
 
-// Enterprise name → short tag slug
+// Enterprise name -> short tag slug
 const ENTERPRISE_TAG_MAP: Record<string, string> = {
-  "מתחם עיבוי וחיזוק בן גוריון - הכשרת הישוב": "בן-גוריון",
-  "ראשון לציון - ז'בוטינסקי": "ז'בוטינסקי",
-  "אור יהודה - החצב / יקותיאל אדם": "אור-יהודה",
-  "רמת גן - תפארת ישראל": "רמת-גן",
+  "\u05DE\u05EA\u05D7\u05DD \u05E2\u05D9\u05D1\u05D5\u05D9 \u05D5\u05D7\u05D9\u05D6\u05D5\u05E7 \u05D1\u05DF \u05D2\u05D5\u05E8\u05D9\u05D5\u05DF - \u05D4\u05DB\u05E9\u05E8\u05EA \u05D4\u05D9\u05E9\u05D5\u05D1": "\u05D1\u05DF-\u05D2\u05D5\u05E8\u05D9\u05D5\u05DF",
+  "\u05E8\u05D0\u05E9\u05D5\u05DF \u05DC\u05E6\u05D9\u05D5\u05DF - \u05D6'\u05D1\u05D5\u05D8\u05D9\u05E0\u05E1\u05E7\u05D9": "\u05D6'\u05D1\u05D5\u05D8\u05D9\u05E0\u05E1\u05E7\u05D9",
+  "\u05D0\u05D5\u05E8 \u05D9\u05D4\u05D5\u05D3\u05D4 - \u05D4\u05D7\u05E6\u05D1 / \u05D9\u05E7\u05D5\u05EA\u05D9\u05D0\u05DC \u05D0\u05D3\u05DD": "\u05D0\u05D5\u05E8-\u05D9\u05D4\u05D5\u05D3\u05D4",
+  "\u05E8\u05DE\u05EA \u05D2\u05DF - \u05EA\u05E4\u05D0\u05E8\u05EA \u05D9\u05E9\u05E8\u05D0\u05DC": "\u05E8\u05DE\u05EA-\u05D2\u05DF",
 };
 
 interface BuildingInfo {
   id: string;
-  enterpriseSlug: string;   // e.g. "בן-גוריון"
+  enterpriseSlug: string;   // e.g. "ben-gurion"
   subZone: string;          // e.g. "B"
-  street: string;           // e.g. "דוד-רזיאל"
+  street: string;           // e.g. "david-raziel"
   streetNum: string;        // e.g. "16"
 }
 
 function createServer(): McpServer {
-  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.0.0" });
+  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.1.0" });
   const client = new ZohoClient();
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
@@ -42,6 +46,10 @@ function createServer(): McpServer {
   registerUserTools(server, client);
   registerAutomationTools(server, client);
   registerActivityTools(server, client);
+  registerCalendarTools(server, client);
+  registerOperationTools(server, client);
+  registerRelatedTools(server, client);
+  registerExtendedUserTools(server, client);
   return server;
 }
 
@@ -108,10 +116,10 @@ async function fetchBuildingInfo(buildingId: string, token: string): Promise<Bui
 
 // Compute the 4 tags for a building
 function buildingToTags(b: BuildingInfo): string[] {
-  const tags: string[] = ["נציג"];
-  if (b.enterpriseSlug) tags.push(`נציג-${b.enterpriseSlug}`);
-  if (b.enterpriseSlug && b.subZone) tags.push(`נציג-${b.enterpriseSlug}-${b.subZone}`);
-  if (b.street && b.streetNum) tags.push(`נציג-${b.street}-${b.streetNum}`);
+  const tags: string[] = ["\u05E0\u05E6\u05D9\u05D2"];
+  if (b.enterpriseSlug) tags.push(`\u05E0\u05E6\u05D9\u05D2-${b.enterpriseSlug}`);
+  if (b.enterpriseSlug && b.subZone) tags.push(`\u05E0\u05E6\u05D9\u05D2-${b.enterpriseSlug}-${b.subZone}`);
+  if (b.street && b.streetNum) tags.push(`\u05E0\u05E6\u05D9\u05D2-${b.street}-${b.streetNum}`);
   return tags;
 }
 
@@ -147,7 +155,7 @@ async function fetchContactBuildings(contactId: string, token: string): Promise<
   }
 }
 
-// Set or clear field68 (נציג/ה checkbox) on Assets where field19 = contactId
+// Set or clear field68 on Assets where field19 = contactId
 async function updateAssetNasigCheckbox(contactId: string, buildingId: string | null, value: boolean, token: string): Promise<void> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   try {
@@ -240,7 +248,7 @@ async function handleNasigOperation(
 
     if (operation === "insert" || operation === "create") {
       // --- ADD: compute tags for the new building and add them ---
-      let tagsToAdd = ["נציג"];
+      let tagsToAdd = ["\u05E0\u05E6\u05D9\u05D2"];
       if (buildingId) {
         const bInfo = await fetchBuildingInfo(buildingId, token);
         if (bInfo) tagsToAdd = buildingToTags(bInfo);
@@ -265,8 +273,8 @@ async function handleNasigOperation(
       remainingBuildings.forEach(b => buildingToTags(b).forEach(t => remainingTags.add(t)));
 
       // All possible tags
-      const allPossibleTags = ["נציג",
-        ...Object.values(ENTERPRISE_TAG_MAP).map(s => `נציג-${s}`),
+      const allPossibleTags = ["\u05E0\u05E6\u05D9\u05D2",
+        ...Object.values(ENTERPRISE_TAG_MAP).map(s => `\u05E0\u05E6\u05D9\u05D2-${s}`),
         // We don't know all sub/building tags, so fetch current tags from contact
       ];
 
@@ -276,7 +284,7 @@ async function handleNasigOperation(
         { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
       );
       const currentTags: string[] = (cRes.data?.data?.[0]?.Tag || []).map((t: Record<string,string>) => t.name);
-      const nasigTags = currentTags.filter(t => t.startsWith("נציג"));
+      const nasigTags = currentTags.filter(t => t.startsWith("\u05E0\u05E6\u05D9\u05D2"));
       const tagsToRemove = nasigTags.filter(t => !remainingTags.has(t));
 
       if (tagsToRemove.length > 0) {
@@ -295,7 +303,7 @@ async function handleNasigOperation(
         await updateAssetNasigCheckbox(contactId, rb.id, true, token);
       }
 
-      console.error(`[webhook] DELETE: contact ${contactId} removed tags: ${tagsToRemove.join(", ")} | still נציג: ${isStillNasig}`);
+      console.error(`[webhook] DELETE: contact ${contactId} removed tags: ${tagsToRemove.join(", ")} | still nasig: ${isStillNasig}`);
       return { success: true, message: `Removed tags: ${tagsToRemove.join(", ")} from Contact ${contactId}` };
     } else {
       return { success: false, message: `Unknown operation: ${operation}` };
@@ -315,7 +323,7 @@ async function runHTTP(): Promise<void> {
   setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.0.0" });
+    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.1.0" });
   });
 
   app.post("/webhook/zoho-tags", async (req, res) => {
@@ -351,7 +359,7 @@ async function runHTTP(): Promise<void> {
 
   const port = parseInt(process.env.PORT || "3000");
   app.listen(port, () => {
-    console.error(`ZOHO CRM MCP Server running on http://localhost:${port}/mcp`);
+    console.error(`ZOHO CRM MCP Server v1.1.0 running on http://localhost:${port}/mcp`);
     console.error(`Webhook: http://localhost:${port}/webhook/zoho-tags`);
   });
 }
