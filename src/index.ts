@@ -10,7 +10,6 @@ import { registerNoteTools } from "./tools/tags-notes-users.js";
 import { registerAutomationTools } from "./tools/automation.js";
 import { registerActivityTools } from "./tools/activities.js";
 import { registerCalendarTools } from "./tools/calendar.js";
-import { registerOperationTools } from "./tools/operations.js";
 import { registerRelatedTools } from "./tools/related.js";
 import { registerUserTools } from "./tools/users.js";
 
@@ -30,14 +29,14 @@ const ENTERPRISE_TAG_MAP: Record<string, string> = {
 
 interface BuildingInfo {
   id: string;
-  enterpriseSlug: string;   // e.g. "ben-gurion"
-  subZone: string;          // e.g. "B"
-  street: string;           // e.g. "david-raziel"
-  streetNum: string;        // e.g. "16"
+  enterpriseSlug: string;
+  subZone: string;
+  street: string;
+  streetNum: string;
 }
 
 function createServer(): McpServer {
-  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.1.1" });
+  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.1.2" });
   const client = new ZohoClient();
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
@@ -45,7 +44,6 @@ function createServer(): McpServer {
   registerAutomationTools(server, client);
   registerActivityTools(server, client);
   registerCalendarTools(server, client);
-  registerOperationTools(server);
   registerRelatedTools(server, client);
   registerUserTools(server, client);
   return server;
@@ -91,7 +89,6 @@ async function renewNotification(): Promise<void> {
   }
 }
 
-// Fetch building details needed to compute tags
 async function fetchBuildingInfo(buildingId: string, token: string): Promise<BuildingInfo | null> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   try {
@@ -112,7 +109,6 @@ async function fetchBuildingInfo(buildingId: string, token: string): Promise<Bui
   }
 }
 
-// Compute the 4 tags for a building
 function buildingToTags(b: BuildingInfo): string[] {
   const tags: string[] = ["\u05E0\u05E6\u05D9\u05D2"];
   if (b.enterpriseSlug) tags.push(`\u05E0\u05E6\u05D9\u05D2-${b.enterpriseSlug}`);
@@ -121,11 +117,9 @@ function buildingToTags(b: BuildingInfo): string[] {
   return tags;
 }
 
-// Fetch all current LinkingModule2 records for a contact (remaining assignments)
 async function fetchContactBuildings(contactId: string, token: string): Promise<BuildingInfo[]> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   try {
-    // Search LinkingModule2 where field1 = contactId
     const res = await axios.get(
       `${apiDomain}/crm/v7/LinkingModule2?fields=id,field0,field1&per_page=200`,
       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
@@ -153,11 +147,9 @@ async function fetchContactBuildings(contactId: string, token: string): Promise<
   }
 }
 
-// Set or clear field68 on Assets where field19 = contactId
 async function updateAssetNasigCheckbox(contactId: string, buildingId: string | null, value: boolean, token: string): Promise<void> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
   try {
-    // Fetch Assets where field19 = contactId (and optionally field16 = buildingId)
     const res = await axios.get(
       `${apiDomain}/crm/v7/Assets?fields=id,field19,field16,field68&per_page=200`,
       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
@@ -167,7 +159,6 @@ async function updateAssetNasigCheckbox(contactId: string, buildingId: string | 
     const toUpdate = assets.filter((a: Record<string, unknown>) => {
       const f19 = a.field19 as Record<string, string> | undefined;
       if (f19?.id !== contactId) return false;
-      // If setting true and we have a buildingId, only update assets in that building
       if (value && buildingId) {
         const f16 = a.field16 as Record<string, string> | undefined;
         return f16?.id === buildingId;
@@ -179,7 +170,6 @@ async function updateAssetNasigCheckbox(contactId: string, buildingId: string | 
 
     const updates = toUpdate.map((a: Record<string, unknown>) => ({ id: a.id, field68: value }));
 
-    // Update in batches of 100
     for (let i = 0; i < updates.length; i += 100) {
       const batch = updates.slice(i, i + 100);
       await axios.put(
@@ -200,7 +190,6 @@ async function handleNasigOperation(
 ): Promise<{ success: boolean; message: string }> {
   const apiDomain = process.env.ZOHO_API_DOMAIN || "https://www.zohoapis.com";
 
-  // Resolve contactId and buildingId from payload
   let contactId: string | null = null;
   let buildingId: string | null = null;
 
@@ -219,7 +208,6 @@ async function handleNasigOperation(
     buildingId = field0;
   }
 
-  // If missing, fetch the LinkingModule2 record
   if ((!contactId || !buildingId) && (operation === "insert" || operation === "create")) {
     const ids = payload["ids"] as string | undefined;
     const recordId = ids ? ids.split(",")[0].trim() : null;
@@ -245,7 +233,6 @@ async function handleNasigOperation(
     const token = await getZohoToken();
 
     if (operation === "insert" || operation === "create") {
-      // --- ADD: compute tags for the new building and add them ---
       let tagsToAdd = ["\u05E0\u05E6\u05D9\u05D2"];
       if (buildingId) {
         const bInfo = await fetchBuildingInfo(buildingId, token);
@@ -258,19 +245,16 @@ async function handleNasigOperation(
         { headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" } }
       );
 
-      // Set field68 = true on Asset(s) of this contact in this building
       await updateAssetNasigCheckbox(contactId, buildingId, true, token);
 
       console.error(`[webhook] ADD: contact ${contactId} tags: ${tagsToAdd.join(", ")}`);
       return { success: true, message: `Added tags: ${tagsToAdd.join(", ")} to Contact ${contactId}` };
 
     } else if (operation === "delete") {
-      // --- REMOVE: recalculate all remaining tags, remove orphaned ones ---
       const remainingBuildings = await fetchContactBuildings(contactId, token);
       const remainingTags = new Set<string>();
       remainingBuildings.forEach(b => buildingToTags(b).forEach(t => remainingTags.add(t)));
 
-      // Fetch current contact tags
       const cRes = await axios.get(
         `${apiDomain}/crm/v7/Contacts/${contactId}?fields=Tag`,
         { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
@@ -287,10 +271,8 @@ async function handleNasigOperation(
         );
       }
 
-      // Update field68 checkbox on assets
       const isStillNasig = remainingBuildings.length > 0;
       await updateAssetNasigCheckbox(contactId, null, false, token);
-      // Re-set true for buildings still assigned
       for (const rb of remainingBuildings) {
         await updateAssetNasigCheckbox(contactId, rb.id, true, token);
       }
@@ -315,7 +297,7 @@ async function runHTTP(): Promise<void> {
   setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.1.1" });
+    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.1.2" });
   });
 
   app.post("/webhook/zoho-tags", async (req, res) => {
@@ -351,7 +333,7 @@ async function runHTTP(): Promise<void> {
 
   const port = parseInt(process.env.PORT || "3000");
   app.listen(port, () => {
-    console.error(`ZOHO CRM MCP Server v1.1.1 running on http://localhost:${port}/mcp`);
+    console.error(`ZOHO CRM MCP Server v1.1.2 running on http://localhost:${port}/mcp`);
     console.error(`Webhook: http://localhost:${port}/webhook/zoho-tags`);
   });
 }
