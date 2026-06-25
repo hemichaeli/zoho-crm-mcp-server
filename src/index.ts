@@ -32,10 +32,8 @@ interface BuildingInfo {
   streetNum: string;
 }
 
-// Factory: fresh McpServer per SSE session (required by SDK).
-// Tools are registered fresh each time - no shared state across sessions.
 function createServer(): McpServer {
-  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.3.0" });
+  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.3.1" });
   const client = new ZohoClient();
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
@@ -180,23 +178,27 @@ async function handleNasigOperation(operation: string, payload: Record<string, u
 
 async function runHTTP(): Promise<void> {
   const app = express();
-
-  // Map of sessionId -> { transport, server } for active SSE sessions
   const sessions = new Map<string, { transport: SSEServerTransport; server: McpServer }>();
 
   await renewNotification();
   setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
-  app.get("/health", (_req, res) => res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.3.0" }));
+  app.get("/health", (_req, res) => res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.3.1" }));
+
+  // OAuth discovery endpoints - return 404 JSON so claude.ai knows no OAuth is required
+  app.get("/.well-known/oauth-authorization-server", (_req, res) => {
+    res.status(404).json({ error: "No OAuth required" });
+  });
+  app.get("/.well-known/openid-configuration", (_req, res) => {
+    res.status(404).json({ error: "No OAuth required" });
+  });
 
   // SSE endpoint: fresh server + transport per session (SDK requirement)
   app.get("/sse", async (_req, res) => {
     const server = createServer();
     const transport = new SSEServerTransport("/messages", res);
     sessions.set(transport.sessionId, { transport, server });
-    res.on("close", () => {
-      sessions.delete(transport.sessionId);
-    });
+    res.on("close", () => sessions.delete(transport.sessionId));
     await server.connect(transport);
   });
 
@@ -222,7 +224,7 @@ async function runHTTP(): Promise<void> {
   });
 
   const port = parseInt(process.env.PORT || "3000");
-  app.listen(port, () => console.error(`ZOHO CRM MCP v1.3.0 on :${port} | /sse | /messages | /webhook/zoho-tags`));
+  app.listen(port, () => console.error(`ZOHO CRM MCP v1.3.1 on :${port} | /sse | /messages | /webhook/zoho-tags`));
 }
 
 async function runStdio(): Promise<void> {
