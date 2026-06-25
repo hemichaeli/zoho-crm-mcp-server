@@ -33,8 +33,7 @@ interface BuildingInfo {
 }
 
 function createServer(): McpServer {
-  // Name deliberately avoids "zoho" to prevent claude.ai OAuth confusion
-  const server = new McpServer({ name: "crm-automation-mcp", version: "1.4.0" });
+  const server = new McpServer({ name: "crm-automation-mcp", version: "1.4.1" });
   const client = new ZohoClient();
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
@@ -184,7 +183,7 @@ async function runHTTP(): Promise<void> {
   await renewNotification();
   setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
-  app.get("/health", (_req, res) => res.json({ status: "ok", service: "crm-automation-mcp", version: "1.4.0" }));
+  app.get("/health", (_req, res) => res.json({ status: "ok", service: "crm-automation-mcp", version: "1.4.1" }));
 
   app.get("/sse", async (_req, res) => {
     const server = createServer();
@@ -194,7 +193,8 @@ async function runHTTP(): Promise<void> {
     await server.connect(transport);
   });
 
-  app.post("/messages", express.json(), async (req, res) => {
+  // CRITICAL: no express.json() here - handlePostMessage must read the raw stream itself
+  app.post("/messages", async (req, res) => {
     const session = sessions.get(req.query.sessionId as string);
     if (!session) { res.status(404).json({ error: "Session not found" }); return; }
     await session.transport.handlePostMessage(req, res);
@@ -216,7 +216,7 @@ async function runHTTP(): Promise<void> {
   });
 
   const port = parseInt(process.env.PORT || "3000");
-  app.listen(port, () => console.error(`CRM Automation MCP v1.4.0 on :${port} | /sse | /messages | /webhook/zoho-tags`));
+  app.listen(port, () => console.error(`CRM Automation MCP v1.4.1 on :${port} | /sse | /messages | /webhook/zoho-tags`));
 }
 
 async function runStdio(): Promise<void> {
