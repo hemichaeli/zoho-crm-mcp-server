@@ -6,13 +6,13 @@ import axios from "axios";
 import { ZohoClient } from "./client.js";
 import { registerRecordTools } from "./tools/records.js";
 import { registerMetadataTools } from "./tools/metadata.js";
-import { registerTagTools, registerNoteTools, registerUserTools } from "./tools/tags-notes-users.js";
+import { registerNoteTools } from "./tools/tags-notes-users.js";
 import { registerAutomationTools } from "./tools/automation.js";
 import { registerActivityTools } from "./tools/activities.js";
 import { registerCalendarTools } from "./tools/calendar.js";
 import { registerOperationTools } from "./tools/operations.js";
 import { registerRelatedTools } from "./tools/related.js";
-import { registerUserTools as registerExtendedUserTools } from "./tools/users.js";
+import { registerUserTools } from "./tools/users.js";
 
 const WEBHOOK_CHANNEL_ID = "77001";
 const WEBHOOK_URL = "https://zoho-crm-mcp-server-production-f0c4.up.railway.app/webhook/zoho-tags";
@@ -37,19 +37,17 @@ interface BuildingInfo {
 }
 
 function createServer(): McpServer {
-  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.1.0" });
+  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.1.1" });
   const client = new ZohoClient();
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
-  registerTagTools(server, client);
   registerNoteTools(server, client);
-  registerUserTools(server, client);
   registerAutomationTools(server, client);
   registerActivityTools(server, client);
   registerCalendarTools(server, client);
-  registerOperationTools(server, client);
+  registerOperationTools(server);
   registerRelatedTools(server, client);
-  registerExtendedUserTools(server, client);
+  registerUserTools(server, client);
   return server;
 }
 
@@ -272,12 +270,6 @@ async function handleNasigOperation(
       const remainingTags = new Set<string>();
       remainingBuildings.forEach(b => buildingToTags(b).forEach(t => remainingTags.add(t)));
 
-      // All possible tags
-      const allPossibleTags = ["\u05E0\u05E6\u05D9\u05D2",
-        ...Object.values(ENTERPRISE_TAG_MAP).map(s => `\u05E0\u05E6\u05D9\u05D2-${s}`),
-        // We don't know all sub/building tags, so fetch current tags from contact
-      ];
-
       // Fetch current contact tags
       const cRes = await axios.get(
         `${apiDomain}/crm/v7/Contacts/${contactId}?fields=Tag`,
@@ -323,7 +315,7 @@ async function runHTTP(): Promise<void> {
   setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.1.0" });
+    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.1.1" });
   });
 
   app.post("/webhook/zoho-tags", async (req, res) => {
@@ -359,7 +351,7 @@ async function runHTTP(): Promise<void> {
 
   const port = parseInt(process.env.PORT || "3000");
   app.listen(port, () => {
-    console.error(`ZOHO CRM MCP Server v1.1.0 running on http://localhost:${port}/mcp`);
+    console.error(`ZOHO CRM MCP Server v1.1.1 running on http://localhost:${port}/mcp`);
     console.error(`Webhook: http://localhost:${port}/webhook/zoho-tags`);
   });
 }
