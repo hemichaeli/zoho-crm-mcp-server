@@ -1,5 +1,4 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import express from "express";
@@ -7,7 +6,6 @@ import axios from "axios";
 import { ZohoClient } from "./client.js";
 import { registerRecordTools } from "./tools/records.js";
 import { registerMetadataTools } from "./tools/metadata.js";
-import { registerNoteTools } from "./tools/tags-notes-users.js";
 import { registerAutomationTools } from "./tools/automation.js";
 import { registerActivityTools } from "./tools/activities.js";
 import { registerCalendarTools } from "./tools/calendar.js";
@@ -35,17 +33,21 @@ interface BuildingInfo {
   streetNum: string;
 }
 
-function createServer(): McpServer {
-  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.1.3" });
+// Single server instance shared across all SSE sessions
+let sharedServer: McpServer | null = null;
+
+function getOrCreateServer(): McpServer {
+  if (sharedServer) return sharedServer;
+  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.2.0" });
   const client = new ZohoClient();
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
-  registerNoteTools(server, client);
   registerAutomationTools(server, client);
   registerActivityTools(server, client);
   registerCalendarTools(server, client);
-  registerRelatedTools(server, client);
+  registerRelatedTools(server);
   registerUserTools(server, client);
+  sharedServer = server;
   return server;
 }
 
@@ -292,19 +294,21 @@ async function handleNasigOperation(
 async function runHTTP(): Promise<void> {
   const app = express();
 
-  // SSE sessions store (factory-per-session pattern, same as all other MCP servers)
+  // Initialize shared server once at startup
+  const server = getOrCreateServer();
+
+  // SSE sessions store
   const sessions = new Map<string, SSEServerTransport>();
 
   await renewNotification();
   setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.1.3" });
+    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.2.0" });
   });
 
   // SSE endpoint - claude.ai connects here
   app.get("/sse", async (_req, res) => {
-    const server = createServer();
     const transport = new SSEServerTransport("/messages", res);
     sessions.set(transport.sessionId, transport);
     res.on("close", () => {
@@ -313,7 +317,7 @@ async function runHTTP(): Promise<void> {
     await server.connect(transport);
   });
 
-  // Messages endpoint for SSE transport
+  // Messages endpoint for SSE sessions
   app.post("/messages", express.json(), async (req, res) => {
     const sessionId = req.query.sessionId as string;
     const transport = sessions.get(sessionId);
@@ -324,7 +328,7 @@ async function runHTTP(): Promise<void> {
     await transport.handlePostMessage(req, res);
   });
 
-  // Webhook endpoint (uses json body parser)
+  // Webhook (uses json body parser)
   app.post("/webhook/zoho-tags", express.json(), async (req, res) => {
     try {
       const body = req.body as Record<string, unknown>;
@@ -348,26 +352,15 @@ async function runHTTP(): Promise<void> {
     }
   });
 
-  // Streamable HTTP endpoint (kept for backwards compatibility)
-  app.post("/mcp", express.json(), async (req, res) => {
-    const server = createServer();
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
-    res.on("close", () => transport.close());
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
-  });
-
   const port = parseInt(process.env.PORT || "3000");
   app.listen(port, () => {
-    console.error(`ZOHO CRM MCP Server v1.1.3 running on http://localhost:${port}`);
-    console.error(`  SSE: /sse`);
-    console.error(`  Streamable HTTP: /mcp`);
-    console.error(`  Webhook: /webhook/zoho-tags`);
+    console.error(`ZOHO CRM MCP Server v1.2.0 running on http://localhost:${port}`);
+    console.error(`  SSE: /sse  |  Messages: /messages  |  Webhook: /webhook/zoho-tags`);
   });
 }
 
 async function runStdio(): Promise<void> {
-  const server = createServer();
+  const server = getOrCreateServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("ZOHO CRM MCP Server running on stdio");
