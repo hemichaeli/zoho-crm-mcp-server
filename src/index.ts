@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import express from "express";
 import axios from "axios";
@@ -19,7 +20,6 @@ const WEBHOOK_TOKEN = "nasig-tag-automation";
 const WEBHOOK_EVENTS = ["LinkingModule2.create", "LinkingModule2.delete"];
 const RENEWAL_INTERVAL_MS = 23 * 60 * 60 * 1000;
 
-// Enterprise name -> short tag slug
 const ENTERPRISE_TAG_MAP: Record<string, string> = {
   "\u05DE\u05EA\u05D7\u05DD \u05E2\u05D9\u05D1\u05D5\u05D9 \u05D5\u05D7\u05D9\u05D6\u05D5\u05E7 \u05D1\u05DF \u05D2\u05D5\u05E8\u05D9\u05D5\u05DF - \u05D4\u05DB\u05E9\u05E8\u05EA \u05D4\u05D9\u05E9\u05D5\u05D1": "\u05D1\u05DF-\u05D2\u05D5\u05E8\u05D9\u05D5\u05DF",
   "\u05E8\u05D0\u05E9\u05D5\u05DF \u05DC\u05E6\u05D9\u05D5\u05DF - \u05D6'\u05D1\u05D5\u05D8\u05D9\u05E0\u05E1\u05E7\u05D9": "\u05D6'\u05D1\u05D5\u05D8\u05D9\u05E0\u05E1\u05E7\u05D9",
@@ -36,7 +36,7 @@ interface BuildingInfo {
 }
 
 function createServer(): McpServer {
-  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.1.2" });
+  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.1.3" });
   const client = new ZohoClient();
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
@@ -291,16 +291,41 @@ async function handleNasigOperation(
 
 async function runHTTP(): Promise<void> {
   const app = express();
-  app.use(express.json());
+
+  // SSE sessions store (factory-per-session pattern, same as all other MCP servers)
+  const sessions = new Map<string, SSEServerTransport>();
 
   await renewNotification();
   setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.1.2" });
+    res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.1.3" });
   });
 
-  app.post("/webhook/zoho-tags", async (req, res) => {
+  // SSE endpoint - claude.ai connects here
+  app.get("/sse", async (_req, res) => {
+    const server = createServer();
+    const transport = new SSEServerTransport("/messages", res);
+    sessions.set(transport.sessionId, transport);
+    res.on("close", () => {
+      sessions.delete(transport.sessionId);
+    });
+    await server.connect(transport);
+  });
+
+  // Messages endpoint for SSE transport
+  app.post("/messages", express.json(), async (req, res) => {
+    const sessionId = req.query.sessionId as string;
+    const transport = sessions.get(sessionId);
+    if (!transport) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+    await transport.handlePostMessage(req, res);
+  });
+
+  // Webhook endpoint (uses json body parser)
+  app.post("/webhook/zoho-tags", express.json(), async (req, res) => {
     try {
       const body = req.body as Record<string, unknown>;
       console.error("[webhook] Received:", JSON.stringify(body));
@@ -323,7 +348,8 @@ async function runHTTP(): Promise<void> {
     }
   });
 
-  app.post("/mcp", async (req, res) => {
+  // Streamable HTTP endpoint (kept for backwards compatibility)
+  app.post("/mcp", express.json(), async (req, res) => {
     const server = createServer();
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on("close", () => transport.close());
@@ -333,8 +359,10 @@ async function runHTTP(): Promise<void> {
 
   const port = parseInt(process.env.PORT || "3000");
   app.listen(port, () => {
-    console.error(`ZOHO CRM MCP Server v1.1.2 running on http://localhost:${port}/mcp`);
-    console.error(`Webhook: http://localhost:${port}/webhook/zoho-tags`);
+    console.error(`ZOHO CRM MCP Server v1.1.3 running on http://localhost:${port}`);
+    console.error(`  SSE: /sse`);
+    console.error(`  Streamable HTTP: /mcp`);
+    console.error(`  Webhook: /webhook/zoho-tags`);
   });
 }
 
