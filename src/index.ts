@@ -33,7 +33,8 @@ interface BuildingInfo {
 }
 
 function createServer(): McpServer {
-  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.3.1" });
+  // Name deliberately avoids "zoho" to prevent claude.ai OAuth confusion
+  const server = new McpServer({ name: "crm-automation-mcp", version: "1.4.0" });
   const client = new ZohoClient();
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
@@ -183,17 +184,8 @@ async function runHTTP(): Promise<void> {
   await renewNotification();
   setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
-  app.get("/health", (_req, res) => res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.3.1" }));
+  app.get("/health", (_req, res) => res.json({ status: "ok", service: "crm-automation-mcp", version: "1.4.0" }));
 
-  // OAuth discovery endpoints - return 404 JSON so claude.ai knows no OAuth is required
-  app.get("/.well-known/oauth-authorization-server", (_req, res) => {
-    res.status(404).json({ error: "No OAuth required" });
-  });
-  app.get("/.well-known/openid-configuration", (_req, res) => {
-    res.status(404).json({ error: "No OAuth required" });
-  });
-
-  // SSE endpoint: fresh server + transport per session (SDK requirement)
   app.get("/sse", async (_req, res) => {
     const server = createServer();
     const transport = new SSEServerTransport("/messages", res);
@@ -224,7 +216,7 @@ async function runHTTP(): Promise<void> {
   });
 
   const port = parseInt(process.env.PORT || "3000");
-  app.listen(port, () => console.error(`ZOHO CRM MCP v1.3.1 on :${port} | /sse | /messages | /webhook/zoho-tags`));
+  app.listen(port, () => console.error(`CRM Automation MCP v1.4.0 on :${port} | /sse | /messages | /webhook/zoho-tags`));
 }
 
 async function runStdio(): Promise<void> {
