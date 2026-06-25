@@ -32,11 +32,10 @@ interface BuildingInfo {
   streetNum: string;
 }
 
-let _server: McpServer | null = null;
-
-function getServer(): McpServer {
-  if (_server) return _server;
-  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.2.2" });
+// Factory: fresh McpServer per SSE session (required by SDK).
+// Tools are registered fresh each time - no shared state across sessions.
+function createServer(): McpServer {
+  const server = new McpServer({ name: "zoho-crm-mcp-server", version: "1.3.0" });
   const client = new ZohoClient();
   registerRecordTools(server, client);
   registerMetadataTools(server, client);
@@ -46,8 +45,6 @@ function getServer(): McpServer {
   registerAutomationTools(server, client);
   registerActivityTools(server, client);
   registerCalendarTools(server, client);
-  _server = server;
-  console.error("MCP server v1.2.2 initialized");
   return server;
 }
 
@@ -183,25 +180,30 @@ async function handleNasigOperation(operation: string, payload: Record<string, u
 
 async function runHTTP(): Promise<void> {
   const app = express();
-  const server = getServer();
-  const sessions = new Map<string, SSEServerTransport>();
+
+  // Map of sessionId -> { transport, server } for active SSE sessions
+  const sessions = new Map<string, { transport: SSEServerTransport; server: McpServer }>();
 
   await renewNotification();
   setInterval(() => renewNotification(), RENEWAL_INTERVAL_MS);
 
-  app.get("/health", (_req, res) => res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.2.2" }));
+  app.get("/health", (_req, res) => res.json({ status: "ok", service: "zoho-crm-mcp-server", version: "1.3.0" }));
 
+  // SSE endpoint: fresh server + transport per session (SDK requirement)
   app.get("/sse", async (_req, res) => {
+    const server = createServer();
     const transport = new SSEServerTransport("/messages", res);
-    sessions.set(transport.sessionId, transport);
-    res.on("close", () => sessions.delete(transport.sessionId));
+    sessions.set(transport.sessionId, { transport, server });
+    res.on("close", () => {
+      sessions.delete(transport.sessionId);
+    });
     await server.connect(transport);
   });
 
   app.post("/messages", express.json(), async (req, res) => {
-    const transport = sessions.get(req.query.sessionId as string);
-    if (!transport) { res.status(404).json({ error: "Session not found" }); return; }
-    await transport.handlePostMessage(req, res);
+    const session = sessions.get(req.query.sessionId as string);
+    if (!session) { res.status(404).json({ error: "Session not found" }); return; }
+    await session.transport.handlePostMessage(req, res);
   });
 
   app.post("/webhook/zoho-tags", express.json(), async (req, res) => {
@@ -220,11 +222,11 @@ async function runHTTP(): Promise<void> {
   });
 
   const port = parseInt(process.env.PORT || "3000");
-  app.listen(port, () => console.error(`ZOHO CRM MCP v1.2.2 on :${port} | /sse | /messages | /webhook/zoho-tags`));
+  app.listen(port, () => console.error(`ZOHO CRM MCP v1.3.0 on :${port} | /sse | /messages | /webhook/zoho-tags`));
 }
 
 async function runStdio(): Promise<void> {
-  const server = getServer();
+  const server = createServer();
   await server.connect(new StdioServerTransport());
 }
 
