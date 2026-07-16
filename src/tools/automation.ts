@@ -97,14 +97,10 @@ export function registerAutomationTools(server: McpServer, client: ZohoClient): 
 
   server.tool(
     "zoho_get_functions",
-    "Fetch all Deluge functions defined in the CRM",
-    {
-      type: z.enum(["org", "module"]).optional().describe("Function type filter"),
-    },
-    async (args) => {
-      const params: Record<string, unknown> = {};
-      if (args.type) params.type = args.type;
-      const result = await client.get("/settings/functions", params);
+    "Fetch all Deluge functions defined in the CRM (API v8 - returns all functions, no type filter)",
+    {},
+    async () => {
+      const result = await client.get("/settings/functions");
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
   );
@@ -313,7 +309,7 @@ export function registerAutomationTools(server: McpServer, client: ZohoClient): 
     {
       requests: z.array(z.object({
         method: z.enum(["GET", "POST", "PUT", "DELETE"]).describe("HTTP method"),
-        url: z.string().describe("API path (e.g., /crm/v7/Leads)"),
+        url: z.string().describe("API path (e.g., /crm/v8/Leads)"),
         reference_id: z.string().describe("Unique reference ID for this sub-request"),
         body: z.record(z.unknown()).optional().describe("Request body for POST/PUT"),
       })).min(1).max(5).describe("Array of sub-requests (max 5)"),
