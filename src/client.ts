@@ -15,7 +15,7 @@ export class ZohoClient {
   private readonly refreshToken: string;
 
   constructor() {
-    this.baseUrl = process.env.ZOHO_BASE_URL || "https://www.zohoapis.com/crm/v7";
+    this.baseUrl = process.env.ZOHO_BASE_URL || "https://www.zohoapis.com/crm/v8";
     this.accountsUrl = process.env.ZOHO_ACCOUNTS_URL || "https://accounts.zoho.com";
     this.clientId = process.env.ZOHO_CLIENT_ID || "";
     this.clientSecret = process.env.ZOHO_CLIENT_SECRET || "";
